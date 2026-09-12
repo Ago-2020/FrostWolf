@@ -113,6 +113,11 @@ function Dashboard() {
                     {project.games?.name} •{" "}
                     {project.project_versions?.length ?? 0} version(s)
                   </p>
+                  {project.summary && (
+                    <p className="mt-1 line-clamp-2 text-sm text-zinc-500">
+                      {project.summary}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <select

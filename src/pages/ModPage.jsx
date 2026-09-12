@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import ProjectIcon from "../components/ProjectIcon";
+import Markdown from "../components/Markdown";
 
 function ModPage() {
   const { slug, projectSlug } = useParams();
@@ -149,9 +150,7 @@ function ModPage() {
         </div>
       </div>
 
-      <p className="mt-8 whitespace-pre-wrap text-zinc-300">
-        {project.description}
-      </p>
+      <Markdown text={project.description} className="mt-8" />
 
       {downloadOpen && (
         <div

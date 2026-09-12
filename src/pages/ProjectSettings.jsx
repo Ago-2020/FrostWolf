@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import ProjectIcon from "../components/ProjectIcon";
+import Markdown from "../components/Markdown";
 import VersionForm from "../components/VersionForm";
 
 const VISIBILITIES = ["public", "unlisted", "private"];
@@ -20,6 +21,7 @@ function ProjectSettings() {
   const [showVersionForm, setShowVersionForm] = useState(false);
   const [iconFile, setIconFile] = useState(null);
   const [iconPreview, setIconPreview] = useState(null);
+  const [descriptionTab, setDescriptionTab] = useState("edit");
 
   useEffect(() => {
     let cancelled = false;
@@ -285,12 +287,54 @@ function ProjectSettings() {
                 />
               </div>
               <div>
-                <label className={labelClass}>Description</label>
-                <textarea
-                  value={general.description}
-                  onChange={(e) => updateGeneral("description", e.target.value)}
-                  className={inputClass}
-                />
+                <div className="mb-1 flex items-center justify-between">
+                  <label className={labelClass}>Description</label>
+                  <div className="flex gap-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setDescriptionTab("edit")}
+                      className={`rounded px-2 py-1 ${
+                        descriptionTab === "edit"
+                          ? "bg-zinc-700 text-white"
+                          : "text-zinc-400 hover:text-white"
+                      }`}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDescriptionTab("preview")}
+                      className={`rounded px-2 py-1 ${
+                        descriptionTab === "preview"
+                          ? "bg-zinc-700 text-white"
+                          : "text-zinc-400 hover:text-white"
+                      }`}
+                    >
+                      Preview
+                    </button>
+                  </div>
+                </div>
+                {descriptionTab === "edit" ? (
+                  <>
+                    <textarea
+                      value={general.description}
+                      onChange={(e) =>
+                        updateGeneral("description", e.target.value)
+                      }
+                      rows={12}
+                      placeholder={"# My mod\n\nDescribe your mod with **Markdown**..."}
+                      className={`${inputClass} font-mono`}
+                    />
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Markdown supported: **bold**, *italic*, # headings, - lists,
+                      [links](https://...), `code`, tables.
+                    </p>
+                  </>
+                ) : (
+                  <div className="min-h-32 rounded border border-zinc-700 bg-zinc-950 px-3 py-2">
+                    <Markdown text={general.description} />
+                  </div>
+                )}
               </div>
               <div className="flex gap-4">
                 <div className="flex-1">

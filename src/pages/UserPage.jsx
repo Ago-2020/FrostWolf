@@ -101,8 +101,8 @@ function UserPage() {
                 <h2 className="text-lg font-semibold text-white">
                   {project.name}
                 </h2>
-                <p className="mt-1 text-sm text-zinc-400">
-                  {project.summary || project.description}
+                <p className="mt-1 line-clamp-2 text-sm text-zinc-400">
+                  {project.summary}
                 </p>
                 <small className="mt-2 block text-zinc-500">
                   {project.games?.name} • {project.project_versions.length}{" "}
