@@ -7,6 +7,7 @@ function GamePage() {
   const { gameSlug } = useParams();
   const [game, setGame] = useState(null);
   const [projects, setProjects] = useState([]);
+  const [search, setSearch] = useState("");
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
@@ -58,6 +59,15 @@ function GamePage() {
     return <p className="p-12 text-center text-zinc-400">Game not found.</p>;
   }
 
+  const q = search.trim().toLowerCase();
+  const filteredProjects = q
+    ? projects.filter((project) =>
+        [project.name, project.slug, project.summary, project.description]
+          .filter(Boolean)
+          .some((field) => field.toLowerCase().includes(q))
+      )
+    : projects;
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
       <div className="mb-8 flex items-center gap-4">
@@ -74,11 +84,23 @@ function GamePage() {
         </div>
       </div>
 
+      <div className="mb-6">
+        <input
+          type="text"
+          placeholder="Search mods (e.g. sodium)..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+        />
+      </div>
+
       {projects.length === 0 ? (
         <p className="text-zinc-400">No projects for this game yet.</p>
+      ) : filteredProjects.length === 0 ? (
+        <p className="text-zinc-400">No mods match &quot;{search}&quot;.</p>
       ) : (
         <div className="flex flex-col gap-4">
-          {projects.map((project) => (
+          {filteredProjects.map((project) => (
             <Link
               key={project.id}
               to={`/games/${gameSlug}/${project.slug}`}

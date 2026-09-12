@@ -95,7 +95,7 @@ function ModPage() {
     return <p className="p-12 text-center text-zinc-400">Project not found.</p>;
   }
 
-  if (!project) return <p>Loading...</p>;
+  if (!project) return <p className="p-12 text-center text-zinc-400">Loading...</p>;
 
   const versions = [...project.project_versions].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)

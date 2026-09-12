@@ -1,1 +1,26 @@
 @import "tailwindcss";
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-zinc-950 text-zinc-200 antialiased;
+  }
+
+  /* Keep native controls (dropdowns, date pickers, scrollbars) on dark theme */
+  input,
+  select,
+  textarea {
+    color-scheme: dark;
+  }
+
+  select option {
+    @apply bg-zinc-900 text-white;
+  }
+
+  ::placeholder {
+    @apply text-zinc-500;
+  }
+}
