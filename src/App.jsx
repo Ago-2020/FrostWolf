@@ -9,6 +9,8 @@ import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import NewMod from "./pages/NewMod";
 import ProjectSettings from "./pages/ProjectSettings";
+import UserPage from "./pages/UserPage";
+import GamePage from "./pages/GamePage";
 
 function App() {
   return (
@@ -27,6 +29,9 @@ function App() {
         />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/users/:id" element={<UserPage />} />
+        <Route path="/games/:gameSlug" element={<GamePage />} />
+        <Route path="/games/:gameSlug/:projectSlug" element={<ModPage />} />
         <Route
           path="/dashboard"
           element={

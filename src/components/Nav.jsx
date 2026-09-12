@@ -24,7 +24,7 @@ function Nav() {
               Dashboard
             </Link>
             <Link
-              to="/dashboard"
+              to={`/users/${user.id}`}
               title={profile?.username ?? user.email}
               className="flex items-center"
             >

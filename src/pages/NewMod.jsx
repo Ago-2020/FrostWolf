@@ -13,7 +13,7 @@ function NewMod() {
   const [form, setForm] = useState({
     name: "",
     slug: "",
-    description: "",
+    summary: "",
     game_id: "",
   });
 
@@ -47,7 +47,7 @@ function NewMod() {
       game_id: form.game_id,
       name: form.name,
       slug: form.slug,
-      description: form.description,
+      summary: form.summary,
       project_type: "mod",
       status: "published",
     });
@@ -139,15 +139,16 @@ function NewMod() {
             />
           </div>
           <div>
-            <label htmlFor="description" className={labelClass}>
-              Description
+            <label htmlFor="summary" className={labelClass}>
+              Summary
             </label>
-            <textarea
-              id="description"
-              name="description"
-              placeholder="What does your mod do?"
-              value={form.description}
+            <input
+              id="summary"
+              name="summary"
+              placeholder="A one-line resume of your project"
+              value={form.summary}
               onChange={handleChange}
+              maxLength={255}
               required
               className={inputClass}
             />
@@ -159,9 +160,10 @@ function NewMod() {
       )}
 
       {games !== null && games.length > 0 && (
-        <p className="mt-4 text-sm text-zinc-500">
-          You can publish versions with files from your dashboard afterwards.
-        </p>
+      <p className="mt-4 text-sm text-zinc-500">
+        You can publish versions and write a full description from your
+        dashboard afterwards.
+      </p>
       )}
     </div>
   );
