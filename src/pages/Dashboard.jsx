@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import VersionForm from "../components/VersionForm";
+import { VoteStars } from "../components/VoteButtons";
 
 const VISIBILITIES = ["public", "unlisted", "private"];
 
@@ -114,6 +115,13 @@ function Dashboard() {
                     {project.project_versions?.length ?? 0} version(s) •{" "}
                     {project.download_count ?? 0} downloads
                   </p>
+                  <div className="mt-1">
+                    <VoteStars
+                      likes={project.like_count}
+                      dislikes={project.dislike_count}
+                      size="sm"
+                    />
+                  </div>
                   {project.summary && (
                     <p className="mt-1 line-clamp-2 text-sm text-zinc-500">
                       {project.summary}

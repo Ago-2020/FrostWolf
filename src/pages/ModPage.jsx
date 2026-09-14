@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import ProjectIcon from "../components/ProjectIcon";
 import Markdown from "../components/Markdown";
+import { VoteStars, VoteButtons } from "../components/VoteButtons";
 
 function ModPage() {
   const { slug, projectSlug } = useParams();
@@ -13,6 +14,9 @@ function ModPage() {
   const [author, setAuthor] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
+  const [userVote, setUserVote] = useState(0);
+  const [voteSaving, setVoteSaving] = useState(false);
+  const [voteError, setVoteError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +51,103 @@ function ModPage() {
       cancelled = true;
     };
   }, [pageSlug]);
+
+  // Live vote stats (source of truth). Cached projects.like_count /
+  // dislike_count can lag behind the trigger, so compute from the votes table.
+  useEffect(() => {
+    let cancelled = false;
+    if (!project?.id) return;
+    supabase
+      .from("project_ratings")
+      .select("value")
+      .eq("project_id", project.id)
+      .then(({ data, error }) => {
+        if (cancelled || error || !data) return;
+        const likes = data.filter((r) => r.value === 1).length;
+        const dislikes = data.filter((r) => r.value === -1).length;
+        setProject((prev) =>
+          prev && prev.id === project.id
+            ? { ...prev, like_count: likes, dislike_count: dislikes }
+            : prev
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.id]);
+
+  // Load the signed-in user's existing vote for this project.
+  useEffect(() => {
+    let cancelled = false;
+    // Reset when switching projects; the fetch below overwrites if a vote exists.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setUserVote(0);
+    setVoteError(null);
+    if (!user || !project?.id || user.id === project.owner_id) return;
+    supabase
+      .from("project_ratings")
+      .select("value")
+      .eq("project_id", project.id)
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data?.value === 1 || data?.value === -1) setUserVote(data.value);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, project?.id, project?.owner_id]);
+
+  async function refreshVoteStats() {
+    if (!project?.id) return;
+    // Recompute from the votes table so the UI is correct even if the
+    // cached projects.like_count / dislike_count columns lag behind.
+    const { data, error } = await supabase
+      .from("project_ratings")
+      .select("value")
+      .eq("project_id", project.id);
+    if (!error && data) {
+      const likes = data.filter((r) => r.value === 1).length;
+      const dislikes = data.filter((r) => r.value === -1).length;
+      setProject((prev) =>
+        prev ? { ...prev, like_count: likes, dislike_count: dislikes } : prev
+      );
+    }
+  }
+
+  async function handleVote(next) {
+    if (!user || !project?.id || voteSaving) return;
+    // Clicking the active button again removes the vote (toggle).
+    const target = userVote === next ? 0 : next;
+    setVoteSaving(true);
+    setVoteError(null);
+    if (target === 0) {
+      const { error } = await supabase
+        .from("project_ratings")
+        .delete()
+        .eq("project_id", project.id)
+        .eq("user_id", user.id);
+      if (error) {
+        setVoteError(error.message);
+      } else {
+        setUserVote(0);
+        await refreshVoteStats();
+      }
+    } else {
+      const { error } = await supabase.from("project_ratings").upsert(
+        { project_id: project.id, user_id: user.id, value: target },
+        { onConflict: "project_id,user_id" }
+      );
+      if (error) {
+        setVoteError(error.message);
+      } else {
+        setUserVote(target);
+        await refreshVoteStats();
+      }
+    }
+    setVoteSaving(false);
+  }
 
   function bumpDownloadCount(versionId) {
     setProject((prev) => ({
@@ -106,10 +207,13 @@ function ModPage() {
 
   if (!project) return <p className="p-12 text-center text-zinc-400">Loading...</p>;
 
-  const versions = [...project.project_versions].sort(
+  const versions = [...(project.project_versions ?? [])].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
   const latest = versions[0];
+  const isOwner = user?.id === project.owner_id;
+  const likeCount = Number(project.like_count) || 0;
+  const dislikeCount = Number(project.dislike_count) || 0;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
@@ -142,6 +246,9 @@ function ModPage() {
               </>
             )}
           </p>
+          <div className="mt-2">
+            <VoteStars likes={likeCount} dislikes={dislikeCount} size="md" />
+          </div>
           {project.summary && (
             <p className="mt-3 text-zinc-300">{project.summary}</p>
           )}
@@ -172,6 +279,45 @@ function ModPage() {
           {latest && (
             <p className="mt-1 text-xs text-zinc-500">latest {latest.version}</p>
           )}
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Rating
+            </p>
+            <div className="mt-1">
+              <VoteStars likes={likeCount} dislikes={dislikeCount} size="lg" />
+            </div>
+          </div>
+          <div className="text-right">
+            {!user ? (
+              <p className="text-sm text-zinc-400">
+                <Link to="/login" className="text-blue-400 hover:underline">
+                  Log in
+                </Link>{" "}
+                to like or dislike this project.
+              </p>
+            ) : isOwner ? (
+              <p className="text-sm text-zinc-500">
+                You can&apos;t vote on your own project.
+              </p>
+            ) : (
+              <VoteButtons
+                likes={likeCount}
+                dislikes={dislikeCount}
+                userVote={userVote}
+                onVote={handleVote}
+                disabled={voteSaving}
+                size="lg"
+              />
+            )}
+            {voteError && (
+              <p className="mt-1 text-xs text-red-400">{voteError}</p>
+            )}
+          </div>
         </div>
       </div>
 

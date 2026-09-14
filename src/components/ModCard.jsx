@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ProjectIcon from "./ProjectIcon";
+import { VoteStars } from "./VoteButtons";
 
 const TOOLTIP_WIDTH = 288 + 12; // w-72 + gap
 
@@ -11,26 +12,6 @@ function ModCard({ project, author, gameSlug }) {
   const projectTags = (project.project_tags ?? [])
     .map((pt) => pt.tags)
     .filter(Boolean);
-  const supportedGameVersions = [
-    ...new Set(
-      (project.project_versions ?? [])
-        .flatMap((v) =>
-          (v.project_version_game_versions ?? []).map(
-            (x) => x.game_versions?.version
-          )
-        )
-        .filter(Boolean)
-    ),
-  ].slice(0, 3);
-  const supportedLoaders = [
-    ...new Set(
-      (project.project_versions ?? [])
-        .flatMap((v) =>
-          (v.project_version_loaders ?? []).map((x) => x.loaders?.name)
-        )
-        .filter(Boolean)
-    ),
-  ].slice(0, 3);
 
   // Pick the tooltip side from the card's real viewport position, so it
   // never runs off-screen regardless of grid columns or window size.
@@ -79,13 +60,13 @@ function ModCard({ project, author, gameSlug }) {
             )}
           </span>
         </p>
-        <small className="mt-2 block text-zinc-500">
-          {(project.project_versions ?? []).length} version(s) •{" "}
-          {project.download_count ?? 0} downloads
-          {supportedGameVersions.length > 0 &&
-            ` • ${supportedGameVersions.join(", ")}`}
-          {supportedLoaders.length > 0 && ` • ${supportedLoaders.join(", ")}`}
-        </small>
+        <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+          <VoteStars
+            likes={project.like_count}
+            dislikes={project.dislike_count}
+            size="sm"
+          />
+        </div>
       </div>
       <div
         className={`pointer-events-none invisible absolute top-1/2 z-30 hidden w-72 -translate-y-1/2 rounded-lg border border-zinc-700 bg-zinc-950 p-4 opacity-0 shadow-2xl transition-all duration-150 group-hover:visible group-hover:opacity-100 group-hover:delay-300 lg:block ${

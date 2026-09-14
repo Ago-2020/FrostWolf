@@ -12,6 +12,8 @@ const PAGE_SIZE = 10;
 const SORTS = [
   { value: "recent", label: "Most recent" },
   { value: "downloads", label: "Most downloads" },
+  { value: "rating", label: "Top rated" },
+  { value: "likes", label: "Most liked" },
   { value: "name", label: "Name (A–Z)" },
 ];
 
@@ -116,16 +118,18 @@ function GamePage() {
           supabase
             .from("projects")
             .select(
-              `id,
-               owner_id,
-               name,
-               slug,
-               summary,
-               description,
-               icon_url,
-               download_count,
-               created_at,
-               updated_at,
+               `id,
+                owner_id,
+                name,
+                slug,
+                summary,
+                description,
+                icon_url,
+                download_count,
+                like_count,
+                dislike_count,
+                created_at,
+                updated_at,
                project_tags ( tags ( id, name, slug ) ),
                project_versions!project_versions_project_id_fkey (
                  version,
@@ -316,6 +320,22 @@ function GamePage() {
     if (sort === "downloads") {
       sorted.sort(
         (a, b) => (b.download_count ?? 0) - (a.download_count ?? 0)
+      );
+    } else if (sort === "rating") {
+      // Star ratio: likes / total votes -> 5 stars. Tie-break by total votes.
+      sorted.sort((a, b) => {
+        const at = (a.like_count ?? 0) + (a.dislike_count ?? 0);
+        const bt = (b.like_count ?? 0) + (b.dislike_count ?? 0);
+        const ar = at > 0 ? (a.like_count ?? 0) / at : 0;
+        const br = bt > 0 ? (b.like_count ?? 0) / bt : 0;
+        return br - ar || bt - at;
+      });
+    } else if (sort === "likes") {
+      sorted.sort(
+        (a, b) =>
+          (b.like_count ?? 0) - (a.like_count ?? 0) ||
+          ((b.like_count ?? 0) - (b.dislike_count ?? 0)) -
+            ((a.like_count ?? 0) - (a.dislike_count ?? 0))
       );
     } else if (sort === "name") {
       sorted.sort((a, b) => a.name.localeCompare(b.name));
