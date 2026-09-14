@@ -121,7 +121,7 @@ function ProjectSettings() {
         const oldPath = decodeURIComponent(
           project.icon_url.split("/project-icons/")[1]
         );
-        supabase.storage.from("project-icons").remove([oldPath]);
+        await supabase.storage.from("project-icons").remove([oldPath]);
       }
     }
 

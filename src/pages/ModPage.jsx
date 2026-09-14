@@ -63,10 +63,18 @@ function ModPage() {
       return;
     }
 
-    bumpDownloadCount(version.id);
-    supabase.rpc("increment_download_count", {
-      p_version_id: version.id,
-    });
+    const { error: countError } = await supabase.rpc(
+      "increment_download_count",
+      {
+        p_version_id: version.id,
+      }
+    );
+
+    if (countError) {
+      console.error(countError);
+    } else {
+      bumpDownloadCount(version.id);
+    }
 
     if (/^https?:\/\//.test(version.file_path)) {
       window.open(version.file_path, "_blank");
@@ -114,7 +122,8 @@ function ModPage() {
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-white">{project.name}</h1>
           <p className="mt-1 text-sm text-zinc-500">
-            {project.games?.name} • {project.project_type} • by{" "}
+            {project.games?.name} • {project.project_type} •{" "}
+            {project.download_count ?? 0} downloads • by{" "}
             <Link
               to={`/users/${project.owner_id}`}
               className="text-zinc-400 hover:text-white hover:underline"

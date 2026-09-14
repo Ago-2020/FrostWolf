@@ -36,6 +36,7 @@ function GamePage() {
          summary,
          description,
          icon_url,
+         download_count,
          games ( name, slug ),
          project_versions!project_versions_project_id_fkey ( version )`
       )
@@ -119,7 +120,8 @@ function GamePage() {
                   {project.summary}
                 </p>
                 <small className="mt-2 block text-zinc-500">
-                  {project.project_versions.length} version(s)
+                  {project.project_versions.length} version(s) •{" "}
+                  {project.download_count ?? 0} downloads
                 </small>
               </div>
             </Link>

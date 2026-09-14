@@ -111,7 +111,8 @@ function Dashboard() {
                   </Link>
                   <p className="text-sm text-zinc-400">
                     {project.games?.name} •{" "}
-                    {project.project_versions?.length ?? 0} version(s)
+                    {project.project_versions?.length ?? 0} version(s) •{" "}
+                    {project.download_count ?? 0} downloads
                   </p>
                   {project.summary && (
                     <p className="mt-1 line-clamp-2 text-sm text-zinc-500">
