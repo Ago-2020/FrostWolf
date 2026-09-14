@@ -8,9 +8,59 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  async function refreshProfile(userId) {
+    if (!userId) {
+      setProfile(null);
+      return;
+    }
+    const { data: p, error } = await supabase
+      .from("profiles")
+      .select("id, username, display_name, avatar_url")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) {
+      // Log the full PostgREST body (message/hint/details) — a 400 here
+      // almost always means the `profiles` table or one of these columns
+      // doesn't exist yet. Run supabase/profiles.sql in the SQL editor.
+      console.error("Failed to load profile:", error);
+      setProfile(null);
+      return;
+    }
+    if (!p) {
+      // No row yet (e.g. user signed up before the handle_new_user
+      // trigger existed). Create one so the rest of the app has
+      // something to read; RLS policy "users can insert their own
+      // profile" must allow id = auth.uid().
+      const { error: insertError } = await supabase
+        .from("profiles")
+        .upsert({ id: userId }, { onConflict: "id" });
+      if (insertError) {
+        console.error("Failed to create missing profile:", insertError);
+        setProfile(null);
+        return;
+      }
+      // Re-read the row we just created.
+      const { data: created, error: rereadError } = await supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url")
+        .eq("id", userId)
+        .maybeSingle();
+      if (rereadError) {
+        console.error("Failed to re-read profile:", rereadError);
+        setProfile(null);
+        return;
+      }
+      setProfile(created ?? null);
+      return;
+    }
+    setProfile(p ?? null);
+  }
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user ?? null);
+      const u = data.user ?? null;
+      setUser(u);
+      if (u) refreshProfile(u.id);
       setLoading(false);
     });
 
@@ -19,14 +69,7 @@ export function AuthProvider({ children }) {
       setUser(u);
 
       if (u) {
-        supabase
-          .from("profiles")
-          .select("id, username, avatar_url")
-          .eq("id", u.id)
-          .single()
-          .then(({ data: p }) => {
-            setProfile(p ?? null);
-          });
+        refreshProfile(u.id);
       } else {
         setProfile(null);
       }
@@ -36,7 +79,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading }}>
+    <AuthContext.Provider value={{ user, profile, loading, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

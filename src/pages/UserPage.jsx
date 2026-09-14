@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../context/AuthContext";
 import ProjectIcon from "../components/ProjectIcon";
 
 function UserPage() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [projects, setProjects] = useState([]);
   const [notFound, setNotFound] = useState(false);
@@ -14,11 +16,16 @@ function UserPage() {
 
     supabase
       .from("profiles")
-      .select("id, username, avatar_url")
+      .select("id, username, display_name, avatar_url")
       .eq("id", id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (cancelled) return;
+        if (error) {
+          console.error("Failed to load profile:", error);
+          setNotFound(true);
+          return;
+        }
         if (!data) {
           setNotFound(true);
           return;
@@ -59,7 +66,9 @@ function UserPage() {
     return <p className="p-12 text-center text-zinc-400">User not found.</p>;
   }
 
-  const displayName = profile?.username ?? "Unknown user";
+  const displayName =
+    profile?.display_name?.trim() || profile?.username || "Unknown user";
+  const isOwner = user?.id === id;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
@@ -75,12 +84,25 @@ function UserPage() {
             {displayName.charAt(0).toUpperCase()}
           </div>
         )}
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold text-white">{displayName}</h1>
+          {profile?.username &&
+            profile.display_name?.trim() &&
+            profile.display_name.trim() !== profile.username && (
+              <p className="text-sm text-zinc-500">@{profile.username}</p>
+            )}
           <p className="text-sm text-zinc-500">
             {projects.length} public project(s)
           </p>
         </div>
+        {isOwner && (
+          <Link
+            to="/settings"
+            className="shrink-0 rounded border border-zinc-600 px-3 py-1.5 text-sm text-zinc-300 hover:text-white"
+          >
+            User settings
+          </Link>
+        )}
       </div>
 
       {projects.length === 0 ? (
