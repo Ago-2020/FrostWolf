@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import PasswordInput from "../components/PasswordInput";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -44,13 +45,10 @@ function Login() {
           required
           className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
         />
-        <input
-          type="password"
-          placeholder="Password"
+        <PasswordInput
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          required
-          className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+          autoComplete="current-password"
         />
         <button className="rounded bg-blue-600 py-2 font-medium text-white hover:bg-blue-500">
           Log in
