@@ -11,6 +11,7 @@ function VersionForm({ projectId, game_id, onDone }) {
   const [form, setForm] = useState({
     version: "",
     release_channel: "release",
+    changelog: "",
     game_version_ids: [],
     loader_ids: [],
   });
@@ -67,6 +68,7 @@ function VersionForm({ projectId, game_id, onDone }) {
         project_id: projectId,
         version: form.version,
         release_channel: form.release_channel,
+        changelog: form.changelog?.trim() ? form.changelog : null,
         file_path: filePath,
         file_name: file?.name ?? null,
         file_size: file?.size ?? null,
@@ -179,6 +181,18 @@ function VersionForm({ projectId, game_id, onDone }) {
             ))}
           </select>
         </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium text-zinc-300">
+          Changelog (optional)
+        </label>
+        <textarea
+          value={form.changelog}
+          onChange={(e) => updateForm("changelog", e.target.value)}
+          rows={4}
+          placeholder="What changed in this version? Markdown supported."
+          className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+        />
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-zinc-300">
