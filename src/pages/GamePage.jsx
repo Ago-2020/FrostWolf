@@ -159,11 +159,14 @@ function GamePage() {
         ),
       ];
       if (ownerIds.length > 0) {
-        const { data: profilesData } = await supabase
+        const { data: profilesData, error: profilesError } = await supabase
           .from("profiles")
-          .select("id, username, avatar_url")
+          .select("id, username, display_name, avatar_url")
           .in("id", ownerIds);
         if (cancelled) return;
+        if (profilesError) {
+          console.error("Failed to load authors:", profilesError);
+        }
         if (profilesData) {
           setAuthors(
             Object.fromEntries(profilesData.map((a) => [a.id, a]))

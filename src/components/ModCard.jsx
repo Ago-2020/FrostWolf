@@ -53,7 +53,7 @@ function ModCard({ project, author, gameSlug }) {
                 onClick={(e) => e.stopPropagation()}
                 className="text-zinc-400 hover:text-white hover:underline"
               >
-                {author.username}
+                {author.display_name?.trim() || author.username}
               </Link>
             ) : (
               "unknown"

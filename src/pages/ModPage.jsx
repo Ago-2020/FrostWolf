@@ -61,12 +61,16 @@ function ModPage() {
 
         return supabase
           .from("profiles")
-          .select("id, username, avatar_url")
+          .select("id, username, display_name, avatar_url")
           .eq("id", data.owner_id)
           .maybeSingle();
       })
       .then((res) => {
         if (cancelled || !res) return;
+        if (res.error) {
+          console.error("Failed to load author:", res.error);
+          return;
+        }
         setAuthor(res.data);
       });
 
@@ -513,17 +517,23 @@ function ModPage() {
                 {author?.avatar_url ? (
                   <img
                     src={author.avatar_url}
-                    alt={author.username ?? ""}
+                    alt={author.display_name?.trim() || author.username || ""}
                     className="h-10 w-10 rounded-full border border-zinc-700 object-cover"
                   />
                 ) : (
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800 text-lg text-zinc-400">
-                    {(author?.username ?? "?").charAt(0).toUpperCase()}
+                    {(
+                      author?.display_name?.trim() ||
+                      author?.username ||
+                      "?"
+                    )
+                      .charAt(0)
+                      .toUpperCase()}
                   </div>
                 )}
                 <div className="min-w-0">
                   <p className="truncate font-medium text-white hover:underline">
-                    {author?.username ?? "unknown"}
+                    {author?.display_name?.trim() || author?.username || "unknown"}
                   </p>
                   <p className="text-xs text-zinc-500">Project owner</p>
                 </div>

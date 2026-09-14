@@ -3,6 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 
+function slugify(text) {
+  return (text ?? "")
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function NewMod() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -10,6 +21,7 @@ function NewMod() {
   const [games, setGames] = useState(null);
   const [gamesError, setGamesError] = useState(null);
   const [error, setError] = useState(null);
+  const [slugTouched, setSlugTouched] = useState(false);
   const [form, setForm] = useState({
     name: "",
     slug: "",
@@ -35,18 +47,30 @@ function NewMod() {
   }, []);
 
   function handleChange(e) {
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    if (name === "slug") {
+      setSlugTouched(value !== "");
+      setForm((f) => ({ ...f, slug: value }));
+      return;
+    }
+    if (name === "name" && !slugTouched) {
+      setForm((f) => ({ ...f, name: value, slug: slugify(value) }));
+      return;
+    }
+    setForm((f) => ({ ...f, [name]: value }));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
 
+    const slug = slugify(form.slug) || slugify(form.name);
+
     const { error: projectError } = await supabase.from("projects").insert({
       owner_id: user.id,
       game_id: form.game_id,
       name: form.name,
-      slug: form.slug,
+      slug,
       summary: form.summary,
       project_type: "mod",
       status: "published",

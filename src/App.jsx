@@ -7,6 +7,7 @@ import ModPage from "./pages/ModPage";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
+import UserSettings from "./pages/UserSettings";
 import NewMod from "./pages/NewMod";
 import ProjectSettings from "./pages/ProjectSettings";
 import UserPage from "./pages/UserPage";
@@ -37,6 +38,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <UserSettings />
             </ProtectedRoute>
           }
         />

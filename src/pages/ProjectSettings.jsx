@@ -8,6 +8,14 @@ import VersionForm from "../components/VersionForm";
 
 const VISIBILITIES = ["public", "unlisted", "private"];
 
+const TABS = [
+  { id: "general", label: "General" },
+  { id: "description", label: "Description" },
+  { id: "tags", label: "Tags" },
+  { id: "versions", label: "Versions" },
+  { id: "danger", label: "Danger Zone" },
+];
+
 function ProjectSettings() {
   const { slug } = useParams();
   const { user } = useAuth();
@@ -22,6 +30,7 @@ function ProjectSettings() {
   const [iconFile, setIconFile] = useState(null);
   const [iconPreview, setIconPreview] = useState(null);
   const [descriptionTab, setDescriptionTab] = useState("edit");
+  const [activeTab, setActiveTab] = useState("general");
   const [allTags, setAllTags] = useState([]);
   const [selectedTagIds, setSelectedTagIds] = useState([]);
 
@@ -257,7 +266,7 @@ function ProjectSettings() {
     "w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white";
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12">
+    <div className="mx-auto max-w-5xl px-6 py-12">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">
           {project.name} — Settings
@@ -289,254 +298,309 @@ function ProjectSettings() {
       )}
 
       {isOwner && (
-        <>
-          <section className="mb-10 rounded border border-zinc-800 bg-zinc-900 p-6">
-            <h2 className="mb-4 text-lg font-semibold text-white">
-              General info
-            </h2>
-            <form onSubmit={saveGeneral} className="flex flex-col gap-4">
-              <div className="flex items-center gap-4">
-                <ProjectIcon
-                  url={iconPreview ?? project.icon_url}
-                  name={project.name}
-                  className="h-20 w-20 rounded-lg border border-zinc-700 text-3xl"
-                />
-                <div>
-                  <label className={labelClass}>Icon</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleIconChange}
-                    className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
-                  />
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Uploads on save. Leave empty to keep the current icon.
-                  </p>
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Name</label>
-                <input
-                  value={general.name}
-                  onChange={(e) => updateGeneral("name", e.target.value)}
-                  required
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Slug</label>
-                <input
-                  value={general.slug}
-                  onChange={(e) => updateGeneral("slug", e.target.value)}
-                  required
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Summary</label>
-                <input
-                  value={general.summary}
-                  onChange={(e) => updateGeneral("summary", e.target.value)}
-                  placeholder="A one-line resume of the project"
-                  maxLength={255}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <div className="mb-1 flex items-center justify-between">
-                  <label className={labelClass}>Description</label>
-                  <div className="flex gap-1 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setDescriptionTab("edit")}
-                      className={`rounded px-2 py-1 ${
-                        descriptionTab === "edit"
-                          ? "bg-zinc-700 text-white"
-                          : "text-zinc-400 hover:text-white"
-                      }`}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDescriptionTab("preview")}
-                      className={`rounded px-2 py-1 ${
-                        descriptionTab === "preview"
-                          ? "bg-zinc-700 text-white"
-                          : "text-zinc-400 hover:text-white"
-                      }`}
-                    >
-                      Preview
-                    </button>
-                  </div>
-                </div>
-                {descriptionTab === "edit" ? (
-                  <>
-                    <textarea
-                      value={general.description}
-                      onChange={(e) =>
-                        updateGeneral("description", e.target.value)
-                      }
-                      rows={12}
-                      placeholder={"# My mod\n\nDescribe your mod with **Markdown**..."}
-                      className={`${inputClass} font-mono`}
+        <div className="flex flex-col gap-6 md:flex-row">
+          <nav
+            aria-label="Settings sections"
+            className="flex shrink-0 gap-1 overflow-x-auto rounded border border-zinc-800 bg-zinc-900 p-2 md:w-52 md:flex-col"
+          >
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`whitespace-nowrap rounded px-3 py-2 text-left text-sm font-medium ${
+                    isActive
+                      ? "bg-zinc-800 text-white"
+                      : "text-zinc-400 hover:bg-zinc-800/50 hover:text-white"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="min-w-0 flex-1">
+            {activeTab === "general" && (
+              <section className="rounded border border-zinc-800 bg-zinc-900 p-6">
+                <h2 className="mb-4 text-lg font-semibold text-white">
+                  General info
+                </h2>
+                <form onSubmit={saveGeneral} className="flex flex-col gap-4">
+                  <div className="flex items-center gap-4">
+                    <ProjectIcon
+                      url={iconPreview ?? project.icon_url}
+                      name={project.name}
+                      className="h-20 w-20 rounded-lg border border-zinc-700 text-3xl"
                     />
-                    <p className="mt-1 text-xs text-zinc-500">
-                      Markdown supported: **bold**, *italic*, # headings, - lists,
-                      [links](https://...), `code`, tables.
-                    </p>
-                  </>
-                ) : (
-                  <div className="min-h-32 rounded border border-zinc-700 bg-zinc-950 px-3 py-2">
-                    <Markdown text={general.description} />
-                  </div>
-                )}
-              </div>
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className={labelClass}>Project type</label>
-                  <input
-                    value={project.project_type}
-                    disabled
-                    className={`${inputClass} cursor-not-allowed opacity-50`}
-                  />
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Project type can&apos;t be changed after creation.
-                  </p>
-                </div>
-                <div className="flex-1">
-                  <label className={labelClass}>Visibility</label>
-                  <select
-                    value={general.visibility}
-                    onChange={(e) =>
-                      updateGeneral("visibility", e.target.value)
-                    }
-                    className={inputClass}
-                  >
-                    {VISIBILITIES.map((v) => (
-                      <option key={v} value={v}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <button
-                disabled={saving}
-                className="self-start rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:opacity-50"
-              >
-                {saving ? "Saving..." : "Save changes"}
-              </button>
-            </form>
-          </section>
-
-          <section className="mb-10 rounded border border-zinc-800 bg-zinc-900 p-6">
-            <h2 className="mb-1 text-lg font-semibold text-white">Tags</h2>
-            <p className="mb-4 text-sm text-zinc-500">
-              Pick from the existing tags for this game. Changes save
-              instantly. New tags are curated by admins.
-            </p>
-            {allTags.length === 0 ? (
-              <p className="mb-4 text-sm text-zinc-400">
-                No tags exist for this game yet.
-              </p>
-            ) : (
-              <div className="mb-4 flex flex-wrap gap-2">
-                {allTags.map((tag) => {
-                  const active = selectedTagIds.includes(tag.id);
-                  return (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      onClick={() => toggleProjectTag(tag.id)}
-                      className={`rounded-full border px-3 py-1 text-sm ${
-                        active
-                          ? "border-blue-500 bg-blue-600 text-white"
-                          : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:border-zinc-500 hover:text-white"
-                      }`}
-                    >
-                      {tag.name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          <section className="mb-10 rounded border border-zinc-800 bg-zinc-900 p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Versions</h2>
-              <button
-                onClick={() => setShowVersionForm((s) => !s)}
-                className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500"
-              >
-                {showVersionForm ? "Cancel" : "Add Version"}
-              </button>
-            </div>
-
-            {showVersionForm && (
-              <div className="mb-6 border-b border-zinc-800 pb-6">
-                <VersionForm
-                  projectId={project.id}
-                  game_id={project.game_id}
-                  onDone={() => {
-                    setShowVersionForm(false);
-                    loadProject();
-                  }}
-                />
-              </div>
-            )}
-
-            {project.project_versions.length === 0 ? (
-              <p className="text-sm text-zinc-400">No versions published yet.</p>
-            ) : (
-              <ul className="flex flex-col gap-3">
-                {project.project_versions.map((version) => (
-                  <li
-                    key={version.id}
-                    className="flex items-center justify-between rounded border border-zinc-800 bg-zinc-950 p-4"
-                  >
                     <div>
-                      <p className="font-semibold text-white">
-                        {version.version}
-                        {version.release_channel !== "release" && (
-                          <span className="ml-2 rounded bg-zinc-700 px-2 py-0.5 text-xs uppercase text-zinc-300">
-                            {version.release_channel}
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-sm text-zinc-500">
-                        {version.download_count} downloads •{" "}
-                        {version.file_name ?? "no file"}
+                      <label className={labelClass}>Icon</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleIconChange}
+                        className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+                      />
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Uploads on save. Leave empty to keep the current icon.
                       </p>
                     </div>
-                    <button
-                      onClick={() => deleteVersion(version.id)}
-                      className="rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-500"
-                    >
-                      Delete
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Name</label>
+                    <input
+                      value={general.name}
+                      onChange={(e) => updateGeneral("name", e.target.value)}
+                      required
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Slug</label>
+                    <input
+                      value={general.slug}
+                      onChange={(e) => updateGeneral("slug", e.target.value)}
+                      required
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Summary</label>
+                    <input
+                      value={general.summary}
+                      onChange={(e) => updateGeneral("summary", e.target.value)}
+                      placeholder="A one-line resume of the project"
+                      maxLength={255}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <label className={labelClass}>Project type</label>
+                      <input
+                        value={project.project_type}
+                        disabled
+                        className={`${inputClass} cursor-not-allowed opacity-50`}
+                      />
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Project type can&apos;t be changed after creation.
+                      </p>
+                    </div>
+                    <div className="flex-1">
+                      <label className={labelClass}>Visibility</label>
+                      <select
+                        value={general.visibility}
+                        onChange={(e) =>
+                          updateGeneral("visibility", e.target.value)
+                        }
+                        className={inputClass}
+                      >
+                        {VISIBILITIES.map((v) => (
+                          <option key={v} value={v}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    disabled={saving}
+                    className="self-start rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:opacity-50"
+                  >
+                    {saving ? "Saving..." : "Save changes"}
+                  </button>
+                </form>
+              </section>
             )}
-          </section>
 
-          <section className="rounded border border-red-900/50 bg-zinc-900 p-6">
-            <h2 className="mb-2 text-lg font-semibold text-white">
-              Danger zone
-            </h2>
-            <p className="mb-4 text-sm text-zinc-400">
-              Deleting the project permanently removes it and all its versions.
-            </p>
-            <button
-              onClick={deleteProject}
-              className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-500"
-            >
-              Delete project
-            </button>
-          </section>
-        </>
+            {activeTab === "description" && (
+              <section className="rounded border border-zinc-800 bg-zinc-900 p-6">
+                <h2 className="mb-4 text-lg font-semibold text-white">
+                  Description
+                </h2>
+                <form onSubmit={saveGeneral} className="flex flex-col gap-4">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className={labelClass}>Content</label>
+                      <div className="flex gap-1 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setDescriptionTab("edit")}
+                          className={`rounded px-2 py-1 ${
+                            descriptionTab === "edit"
+                              ? "bg-zinc-700 text-white"
+                              : "text-zinc-400 hover:text-white"
+                          }`}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDescriptionTab("preview")}
+                          className={`rounded px-2 py-1 ${
+                            descriptionTab === "preview"
+                              ? "bg-zinc-700 text-white"
+                              : "text-zinc-400 hover:text-white"
+                          }`}
+                        >
+                          Preview
+                        </button>
+                      </div>
+                    </div>
+                    {descriptionTab === "edit" ? (
+                      <>
+                        <textarea
+                          value={general.description}
+                          onChange={(e) =>
+                            updateGeneral("description", e.target.value)
+                          }
+                          rows={12}
+                          placeholder={
+                            "# My mod\n\nDescribe your mod with **Markdown**..."
+                          }
+                          className={`${inputClass} font-mono`}
+                        />
+                        <p className="mt-1 text-xs text-zinc-500">
+                          Markdown supported: **bold**, *italic*, # headings, -
+                          lists, [links](https://...), `code`, tables.
+                        </p>
+                      </>
+                    ) : (
+                      <div className="min-h-32 rounded border border-zinc-700 bg-zinc-950 px-3 py-2">
+                        <Markdown text={general.description} />
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    disabled={saving}
+                    className="self-start rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:opacity-50"
+                  >
+                    {saving ? "Saving..." : "Save changes"}
+                  </button>
+                </form>
+              </section>
+            )}
+
+            {activeTab === "tags" && (
+              <section className="rounded border border-zinc-800 bg-zinc-900 p-6">
+                <h2 className="mb-1 text-lg font-semibold text-white">Tags</h2>
+                <p className="mb-4 text-sm text-zinc-500">
+                  Pick from the existing tags for this game. Changes save
+                  instantly. New tags are curated by admins.
+                </p>
+                {allTags.length === 0 ? (
+                  <p className="mb-4 text-sm text-zinc-400">
+                    No tags exist for this game yet.
+                  </p>
+                ) : (
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {allTags.map((tag) => {
+                      const active = selectedTagIds.includes(tag.id);
+                      return (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => toggleProjectTag(tag.id)}
+                          className={`rounded-full border px-3 py-1 text-sm ${
+                            active
+                              ? "border-blue-500 bg-blue-600 text-white"
+                              : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:border-zinc-500 hover:text-white"
+                          }`}
+                        >
+                          {tag.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {activeTab === "versions" && (
+              <section className="rounded border border-zinc-800 bg-zinc-900 p-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-white">Versions</h2>
+                  <button
+                    onClick={() => setShowVersionForm((s) => !s)}
+                    className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500"
+                  >
+                    {showVersionForm ? "Cancel" : "Add Version"}
+                  </button>
+                </div>
+
+                {showVersionForm && (
+                  <div className="mb-6 border-b border-zinc-800 pb-6">
+                    <VersionForm
+                      projectId={project.id}
+                      game_id={project.game_id}
+                      onDone={() => {
+                        setShowVersionForm(false);
+                        loadProject();
+                      }}
+                    />
+                  </div>
+                )}
+
+                {project.project_versions.length === 0 ? (
+                  <p className="text-sm text-zinc-400">
+                    No versions published yet.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-3">
+                    {project.project_versions.map((version) => (
+                      <li
+                        key={version.id}
+                        className="flex items-center justify-between rounded border border-zinc-800 bg-zinc-950 p-4"
+                      >
+                        <div>
+                          <p className="font-semibold text-white">
+                            {version.version}
+                            {version.release_channel !== "release" && (
+                              <span className="ml-2 rounded bg-zinc-700 px-2 py-0.5 text-xs uppercase text-zinc-300">
+                                {version.release_channel}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-sm text-zinc-500">
+                            {version.download_count} downloads •{" "}
+                            {version.file_name ?? "no file"}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => deleteVersion(version.id)}
+                          className="rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-500"
+                        >
+                          Delete
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
+
+            {activeTab === "danger" && (
+              <section className="rounded border border-red-900/50 bg-zinc-900 p-6">
+                <h2 className="mb-2 text-lg font-semibold text-white">
+                  Danger zone
+                </h2>
+                <p className="mb-4 text-sm text-zinc-400">
+                  Deleting the project permanently removes it and all its
+                  versions.
+                </p>
+                <button
+                  onClick={deleteProject}
+                  className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-500"
+                >
+                  Delete project
+                </button>
+              </section>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
