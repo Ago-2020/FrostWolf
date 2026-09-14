@@ -20,7 +20,7 @@ function ModPage() {
     supabase
       .from("projects")
       .select(
-        "*, games ( name, slug ), project_versions!project_versions_project_id_fkey ( * )"
+        "*, games ( name, slug ), project_tags ( tags ( id, name, slug ) ), project_versions!project_versions_project_id_fkey ( *, project_version_game_versions ( game_versions ( id, version ) ), project_version_loaders ( loaders ( id, name, slug ) ) )"
       )
       .eq("slug", pageSlug)
       .maybeSingle()
@@ -145,6 +145,22 @@ function ModPage() {
           {project.summary && (
             <p className="mt-3 text-zinc-300">{project.summary}</p>
           )}
+          {(project.project_tags ?? []).length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {(project.project_tags ?? [])
+                .map((pt) => pt.tags)
+                .filter(Boolean)
+                .map((t) => (
+                  <Link
+                    key={t.id}
+                    to={`/games/${project.games?.slug}?tag=${t.slug}`}
+                    className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-0.5 text-xs text-zinc-300 hover:border-zinc-500 hover:text-white"
+                  >
+                    {t.name}
+                  </Link>
+                ))}
+            </div>
+          )}
         </div>
         <div className="text-right">
           <button
@@ -185,12 +201,19 @@ function ModPage() {
               <p className="text-zinc-400">No versions published yet.</p>
             ) : (
               <ul className="flex max-h-80 flex-col gap-3 overflow-y-auto">
-                {versions.map((version) => (
+                {versions.map((version) => {
+                  const gv = (version.project_version_game_versions ?? [])
+                    .map((x) => x.game_versions?.version)
+                    .filter(Boolean);
+                  const ld = (version.project_version_loaders ?? [])
+                    .map((x) => x.loaders?.name)
+                    .filter(Boolean);
+                  return (
                   <li
                     key={version.id}
-                    className="flex items-center justify-between rounded border border-zinc-800 bg-zinc-950 p-4"
+                    className="flex items-center justify-between gap-3 rounded border border-zinc-800 bg-zinc-950 p-4"
                   >
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-semibold text-white">
                         {version.version}
                         {version.release_channel !== "release" && (
@@ -202,15 +225,23 @@ function ModPage() {
                       <p className="text-sm text-zinc-500">
                         {version.download_count} downloads
                       </p>
+                      {(gv.length > 0 || ld.length > 0) && (
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {[gv.join(", "), ld.join(", ")]
+                            .filter(Boolean)
+                            .join(" • ")}
+                        </p>
+                      )}
                     </div>
                     <button
                       onClick={() => downloadVersion(version)}
-                      className="rounded bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-500"
+                      className="shrink-0 rounded bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-500"
                     >
                       Download
                     </button>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </div>

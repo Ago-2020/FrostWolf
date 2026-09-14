@@ -22,6 +22,8 @@ function ProjectSettings() {
   const [iconFile, setIconFile] = useState(null);
   const [iconPreview, setIconPreview] = useState(null);
   const [descriptionTab, setDescriptionTab] = useState("edit");
+  const [allTags, setAllTags] = useState([]);
+  const [selectedTagIds, setSelectedTagIds] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,6 +72,60 @@ function ProjectSettings() {
         }
         setProject(data);
       });
+  }
+
+  useEffect(() => {
+    if (!project?.id || !project?.game_id) return;
+    let cancelled = false;
+
+    Promise.all([
+      supabase
+        .from("tags")
+        .select("id, name, slug")
+        .eq("game_id", project.game_id)
+        .order("name"),
+      supabase
+        .from("project_tags")
+        .select("tag_id")
+        .eq("project_id", project.id),
+    ]).then(([tagsRes, ptRes]) => {
+      if (cancelled) return;
+      if (!tagsRes.error) setAllTags(tagsRes.data ?? []);
+      if (!ptRes.error)
+        setSelectedTagIds((ptRes.data ?? []).map((r) => r.tag_id));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.id, project?.game_id]);
+
+  async function toggleProjectTag(tagId) {
+    const selected = selectedTagIds.includes(tagId);
+    setSelectedTagIds((s) =>
+      selected ? s.filter((id) => id !== tagId) : [...s, tagId]
+    );
+    setMessage(null);
+
+    if (selected) {
+      const { error } = await supabase
+        .from("project_tags")
+        .delete()
+        .eq("project_id", project.id)
+        .eq("tag_id", tagId);
+      if (error) {
+        setSelectedTagIds((s) => [...s, tagId]);
+        setMessage({ type: "error", text: error.message });
+      }
+    } else {
+      const { error } = await supabase
+        .from("project_tags")
+        .insert({ project_id: project.id, tag_id: tagId });
+      if (error) {
+        setSelectedTagIds((s) => s.filter((id) => id !== tagId));
+        setMessage({ type: "error", text: error.message });
+      }
+    }
   }
 
   function updateGeneral(name, value) {
@@ -372,6 +428,39 @@ function ProjectSettings() {
                 {saving ? "Saving..." : "Save changes"}
               </button>
             </form>
+          </section>
+
+          <section className="mb-10 rounded border border-zinc-800 bg-zinc-900 p-6">
+            <h2 className="mb-1 text-lg font-semibold text-white">Tags</h2>
+            <p className="mb-4 text-sm text-zinc-500">
+              Pick from the existing tags for this game. Changes save
+              instantly. New tags are curated by admins.
+            </p>
+            {allTags.length === 0 ? (
+              <p className="mb-4 text-sm text-zinc-400">
+                No tags exist for this game yet.
+              </p>
+            ) : (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {allTags.map((tag) => {
+                  const active = selectedTagIds.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleProjectTag(tag.id)}
+                      className={`rounded-full border px-3 py-1 text-sm ${
+                        active
+                          ? "border-blue-500 bg-blue-600 text-white"
+                          : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:border-zinc-500 hover:text-white"
+                      }`}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           <section className="mb-10 rounded border border-zinc-800 bg-zinc-900 p-6">
