@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import ProjectIcon from "../components/ProjectIcon";
+import { GameCardSkeleton } from "../components/Skeletons";
 
 function Home() {
   const [games, setGames] = useState([]);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -17,6 +19,7 @@ function Home() {
       .then(({ data }) => {
         if (cancelled) return;
         setGames(data ?? []);
+        setLoading(false);
       });
 
     return () => {
@@ -46,10 +49,20 @@ function Home() {
       </div>
 
       <p className="mb-4 text-sm text-zinc-400">
-        {filteredGames.length} game(s)
+        {loading ? (
+          <span className="inline-block h-4 w-20 animate-pulse rounded bg-zinc-800" />
+        ) : (
+          `${filteredGames.length} game(s)`
+        )}
       </p>
 
-      {filteredGames.length === 0 ? (
+      {loading ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <GameCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : filteredGames.length === 0 ? (
         <p className="text-zinc-400">
           {q ? `No games match "${search}".` : "No games yet."}
         </p>

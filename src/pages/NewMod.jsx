@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import { FormSkeleton } from "../components/Skeletons";
 
 function slugify(text) {
   return (text ?? "")
@@ -111,7 +112,7 @@ function NewMod() {
         </p>
       )}
 
-      {games === null && !gamesError && <p className="text-zinc-400">Loading games...</p>}
+      {games === null && !gamesError && <FormSkeleton rows={4} />}
 
       {games !== null && games.length > 0 && (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

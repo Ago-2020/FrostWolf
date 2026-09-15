@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import ProjectIcon from "../components/ProjectIcon";
+import { UserPageSkeleton } from "../components/Skeletons";
 
 function UserPage() {
   const { id } = useParams();
@@ -10,57 +11,64 @@ function UserPage() {
   const [profile, setProfile] = useState(null);
   const [projects, setProjects] = useState([]);
   const [notFound, setNotFound] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setLoading(true);
+    setNotFound(false);
+    setProfile(null);
+    setProjects([]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
-    supabase
-      .from("profiles")
-      .select("id, username, display_name, avatar_url")
-      .eq("id", id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.error("Failed to load profile:", error);
-          setNotFound(true);
-          return;
-        }
-        if (!data) {
-          setNotFound(true);
-          return;
-        }
-        setProfile(data);
-      });
-
-    supabase
-      .from("projects")
-      .select(
-        `id,
-         name,
-         slug,
-         summary,
-         description,
-         icon_url,
-         download_count,
-         games ( name, slug ),
-         project_versions!project_versions_project_id_fkey ( version )`
-      )
-      .eq("owner_id", id)
-      .order("created_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.error(error);
-          return;
-        }
-        setProjects(data);
-      });
+    Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url")
+        .eq("id", id)
+        .maybeSingle(),
+      supabase
+        .from("projects")
+        .select(
+          `id,
+           name,
+           slug,
+           summary,
+           description,
+           icon_url,
+           download_count,
+           games ( name, slug ),
+           project_versions!project_versions_project_id_fkey ( version )`
+        )
+        .eq("owner_id", id)
+        .order("created_at", { ascending: false }),
+    ]).then(([profileRes, projectsRes]) => {
+      if (cancelled) return;
+      if (profileRes.error) {
+        console.error("Failed to load profile:", profileRes.error);
+        setNotFound(true);
+      } else if (!profileRes.data) {
+        setNotFound(true);
+      } else {
+        setProfile(profileRes.data);
+      }
+      if (projectsRes.error) {
+        console.error(projectsRes.error);
+      } else {
+        setProjects(projectsRes.data ?? []);
+      }
+      setLoading(false);
+    });
 
     return () => {
       cancelled = true;
     };
   }, [id]);
+
+  if (loading) {
+    return <UserPageSkeleton />;
+  }
 
   if (notFound) {
     return <p className="p-12 text-center text-zinc-400">User not found.</p>;

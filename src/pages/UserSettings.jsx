@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import { FormSkeleton } from "../components/Skeletons";
 
 function UserSettings() {
   const { user, refreshProfile } = useAuth();
@@ -85,7 +86,12 @@ function UserSettings() {
   }
 
   if (loading) {
-    return <p className="p-12 text-center text-zinc-400">Loading…</p>;
+    return (
+      <div className="mx-auto max-w-md px-6 py-16">
+        <div className="mb-6 h-8 w-48 animate-pulse rounded bg-zinc-800" />
+        <FormSkeleton rows={4} />
+      </div>
+    );
   }
 
   return (

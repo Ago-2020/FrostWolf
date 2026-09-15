@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import ProjectIcon from "../components/ProjectIcon";
 import Markdown from "../components/Markdown";
 import { VoteStars, VoteButtons } from "../components/VoteButtons";
+import { ModPageSkeleton } from "../components/Skeletons";
 
 function ModPage() {
   const { slug, projectSlug } = useParams();
@@ -232,7 +233,7 @@ function ModPage() {
     return <p className="p-12 text-center text-zinc-400">Project not found.</p>;
   }
 
-  if (!project) return <p className="p-12 text-center text-zinc-400">Loading...</p>;
+  if (!project) return <ModPageSkeleton />;
 
   const versions = [...(project.project_versions ?? [])].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)

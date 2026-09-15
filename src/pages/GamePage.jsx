@@ -93,6 +93,7 @@ function GamePage() {
       if (cancelled) return;
       if (!gameData) {
         setNotFound(true);
+        setLoading(false);
         return;
       }
       setGame(gameData);
@@ -466,15 +467,17 @@ function GamePage() {
         {/* Results */}
         <main className="min-w-0 flex-1">
           {loading ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <div className="flex items-center justify-between gap-3">
+            <>
+              <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="h-4 w-28 animate-pulse rounded bg-zinc-800" />
                 <div className="h-9 w-44 animate-pulse rounded bg-zinc-800" />
               </div>
-              {[0, 1, 2, 3, 4].map((i) => (
-                <ModCardSkeleton key={i} />
-              ))}
-            </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <ModCardSkeleton key={i} />
+                ))}
+              </div>
+            </>
           ) : (
             <>
               <div className="mb-4 flex items-center justify-between gap-3">

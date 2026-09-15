@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import ProjectIcon from "../components/ProjectIcon";
 import Markdown from "../components/Markdown";
 import VersionForm from "../components/VersionForm";
+import { FormSkeleton } from "../components/Skeletons";
 
 const VISIBILITIES = ["public", "unlisted", "private"];
 
@@ -257,7 +258,20 @@ function ProjectSettings() {
   }
 
   if (!project || !general) {
-    return <p className="p-12 text-center text-zinc-400">Loading...</p>;
+    return (
+      <div className="mx-auto max-w-5xl animate-pulse px-6 py-12" aria-hidden>
+        <div className="mb-6 flex items-center justify-between">
+          <div className="h-8 w-64 rounded bg-zinc-800" />
+          <div className="h-4 w-28 rounded bg-zinc-800" />
+        </div>
+        <div className="flex flex-col gap-6 md:flex-row">
+          <div className="h-48 shrink-0 rounded border border-zinc-800 bg-zinc-900 p-2 md:w-52" />
+          <div className="min-w-0 flex-1 rounded border border-zinc-800 bg-zinc-900 p-6">
+            <FormSkeleton rows={5} />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const isOwner = user?.id === project.owner_id;

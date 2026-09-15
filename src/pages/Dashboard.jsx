@@ -4,12 +4,14 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import VersionForm from "../components/VersionForm";
 import { VoteStars } from "../components/VoteButtons";
+import { DashboardProjectSkeleton } from "../components/Skeletons";
 
 const VISIBILITIES = ["public", "unlisted", "private"];
 
 function Dashboard() {
   const { user } = useAuth();
   const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [openVersionFor, setOpenVersionFor] = useState(null);
 
   useEffect(() => {
@@ -24,9 +26,11 @@ function Dashboard() {
         if (cancelled) return;
         if (fetchError) {
           console.error(fetchError);
+          setLoading(false);
           return;
         }
         setProjects(data);
+        setLoading(false);
       });
 
     return () => {
@@ -91,7 +95,15 @@ function Dashboard() {
         </Link>
       </div>
 
-      {projects.length === 0 ? (
+      {loading ? (
+        <ul className="flex flex-col gap-4">
+          {[0, 1, 2].map((i) => (
+            <li key={i}>
+              <DashboardProjectSkeleton />
+            </li>
+          ))}
+        </ul>
+      ) : projects.length === 0 ? (
         <p className="text-zinc-400">
           You haven&apos;t created any projects yet.
         </p>
