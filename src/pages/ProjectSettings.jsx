@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import ProjectIcon from "../components/ProjectIcon";
@@ -24,6 +24,7 @@ function ProjectSettings() {
 
   const [project, setProject] = useState(null);
   const [general, setGeneral] = useState(null);
+  const [savedGeneral, setSavedGeneral] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [message, setMessage] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -34,6 +35,52 @@ function ProjectSettings() {
   const [activeTab, setActiveTab] = useState("general");
   const [allTags, setAllTags] = useState([]);
   const [selectedTagIds, setSelectedTagIds] = useState([]);
+  const [pendingTab, setPendingTab] = useState(null);
+
+  // Tracks whether the form differs from the last saved state, so we can
+  // warn before discarding edits (tab switch, in-app navigation, tab close).
+  const isDirtyRef = useRef(false);
+  const bypassBlockRef = useRef(false);
+
+  const isDirty = useMemo(() => {
+    if (!general || !savedGeneral) return false;
+    if (iconFile) return true;
+    return (
+      general.name !== savedGeneral.name ||
+      general.slug !== savedGeneral.slug ||
+      (general.summary ?? "") !== (savedGeneral.summary ?? "") ||
+      (general.description ?? "") !== (savedGeneral.description ?? "") ||
+      (general.icon_url ?? "") !== (savedGeneral.icon_url ?? "") ||
+      general.visibility !== savedGeneral.visibility
+    );
+  }, [general, savedGeneral, iconFile]);
+
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
+  // Block in-app navigation (Back to project, nav links, browser back)
+  // while there are unsaved settings edits.
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) => {
+      if (bypassBlockRef.current) return false;
+      if (currentLocation.pathname === nextLocation.pathname) return false;
+      return isDirtyRef.current;
+    }
+  );
+  const isNavigationBlocked = blocker.state === "blocked";
+
+  // Warn on browser refresh / tab close with unsaved edits. Browsers only
+  // show a generic leave confirmation here (no custom Save button).
+  useEffect(() => {
+    if (!isDirty) return;
+    function onBeforeUnload(e) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [isDirty]);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,14 +99,16 @@ function ProjectSettings() {
           return;
         }
         setProject(data);
-        setGeneral({
+        const snapshot = {
           name: data.name,
           slug: data.slug,
           summary: data.summary ?? "",
           description: data.description ?? "",
           icon_url: data.icon_url ?? "",
           visibility: data.visibility,
-        });
+        };
+        setGeneral(snapshot);
+        setSavedGeneral(snapshot);
       });
 
     return () => {
@@ -157,7 +206,8 @@ function ProjectSettings() {
   }
 
   async function saveGeneral(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    if (!project || !general || saving) return false;
     setSaving(true);
     setMessage(null);
 
@@ -175,7 +225,7 @@ function ProjectSettings() {
       if (uploadError) {
         setSaving(false);
         setMessage({ type: "error", text: uploadError.message });
-        return;
+        return false;
       }
 
       const { data: publicData } = supabase.storage
@@ -207,18 +257,74 @@ function ProjectSettings() {
 
     if (updateError) {
       setMessage({ type: "error", text: updateError.message });
-      return;
+      return false;
     }
 
+    const snapshot = {
+      name: general.name,
+      slug: general.slug,
+      summary: general.summary || "",
+      description: general.description,
+      icon_url: iconUrl ?? "",
+      visibility: general.visibility,
+    };
     setMessage({ type: "success", text: "Saved." });
+    setSavedGeneral(snapshot);
+    setGeneral(snapshot);
     setProject((p) => ({ ...p, icon_url: iconUrl }));
     setIconFile(null);
     setIconPreview(null);
+    isDirtyRef.current = false;
 
     if (general.slug !== slug) {
       setProject((p) => ({ ...p, slug: general.slug }));
+      // Internal redirect after a slug rename shouldn't trip the guard:
+      // the form was just saved, so allow this navigation through.
+      bypassBlockRef.current = true;
       navigate(`/mods/${general.slug}/settings`, { replace: true });
+      bypassBlockRef.current = false;
     }
+
+    return true;
+  }
+
+  function requestTabChange(next) {
+    if (next === activeTab) return;
+    if (isDirtyRef.current) {
+      setPendingTab(next);
+      return;
+    }
+    setActiveTab(next);
+  }
+
+  function discardPendingTab() {
+    if (savedGeneral) setGeneral({ ...savedGeneral });
+    setIconFile(null);
+    setIconPreview(null);
+    isDirtyRef.current = false;
+    setActiveTab(pendingTab);
+    setPendingTab(null);
+  }
+
+  async function savePendingTab() {
+    const ok = await saveGeneral();
+    if (ok) {
+      setActiveTab(pendingTab);
+      setPendingTab(null);
+    }
+  }
+
+  async function saveAndProceed() {
+    const ok = await saveGeneral();
+    if (ok) {
+      isDirtyRef.current = false;
+      blocker.proceed();
+    }
+  }
+
+  function discardAndProceed() {
+    // Leave without saving; form state is discarded with the unmount.
+    blocker.proceed();
   }
 
   async function deleteVersion(versionId) {
@@ -323,15 +429,22 @@ function ProjectSettings() {
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => requestTabChange(tab.id)}
                   aria-current={isActive ? "page" : undefined}
-                  className={`whitespace-nowrap rounded px-3 py-2 text-left text-sm font-medium ${
+                  className={`flex items-center justify-between gap-2 whitespace-nowrap rounded px-3 py-2 text-left text-sm font-medium ${
                     isActive
                       ? "bg-zinc-800 text-white"
                       : "text-zinc-400 hover:bg-zinc-800/50 hover:text-white"
                   }`}
                 >
                   {tab.label}
+                  {isActive && isDirty && (
+                    <span
+                      title="Unsaved changes"
+                      aria-label="Unsaved changes"
+                      className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
+                    />
+                  )}
                 </button>
               );
             })}
@@ -420,12 +533,19 @@ function ProjectSettings() {
                       </select>
                     </div>
                   </div>
-                  <button
-                    disabled={saving}
-                    className="self-start rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:opacity-50"
-                  >
-                    {saving ? "Saving..." : "Save changes"}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      disabled={saving}
+                      className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:opacity-50"
+                    >
+                      {saving ? "Saving..." : "Save changes"}
+                    </button>
+                    {isDirty && !saving && (
+                      <span className="text-sm text-amber-300">
+                        You have unsaved changes.
+                      </span>
+                    )}
+                  </div>
                 </form>
               </section>
             )}
@@ -488,12 +608,19 @@ function ProjectSettings() {
                       </div>
                     )}
                   </div>
-                  <button
-                    disabled={saving}
-                    className="self-start rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:opacity-50"
-                  >
-                    {saving ? "Saving..." : "Save changes"}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      disabled={saving}
+                      className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:opacity-50"
+                    >
+                      {saving ? "Saving..." : "Save changes"}
+                    </button>
+                    {isDirty && !saving && (
+                      <span className="text-sm text-amber-300">
+                        You have unsaved changes.
+                      </span>
+                    )}
+                  </div>
                 </form>
               </section>
             )}
@@ -613,6 +740,65 @@ function ProjectSettings() {
                 </button>
               </section>
             )}
+          </div>
+        </div>
+      )}
+
+      {(pendingTab || isNavigationBlocked) && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="unsaved-changes-title"
+          aria-describedby="unsaved-changes-desc"
+        >
+          <div className="w-full max-w-md rounded-lg border border-zinc-700 bg-zinc-900 p-6">
+            <h2
+              id="unsaved-changes-title"
+              className="text-lg font-semibold text-white"
+            >
+              Save your changes?
+            </h2>
+            <p id="unsaved-changes-desc" className="mt-2 text-sm text-zinc-400">
+              {isNavigationBlocked
+                ? "You have unsaved settings changes. Do you want to save them before leaving this page?"
+                : "You have unsaved settings changes. Do you want to save them before switching sections?"}
+            </p>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  if (isNavigationBlocked) blocker.reset();
+                  else setPendingTab(null);
+                }}
+                className="rounded border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-300 hover:border-zinc-500 hover:text-white disabled:opacity-50"
+              >
+                Keep editing
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  if (isNavigationBlocked) discardAndProceed();
+                  else discardPendingTab();
+                }}
+                className="rounded border border-red-900 bg-red-950 px-4 py-2 text-sm text-red-200 hover:bg-red-900 disabled:opacity-50"
+              >
+                Discard changes
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  if (isNavigationBlocked) saveAndProceed();
+                  else savePendingTab();
+                }}
+                className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-500 disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save changes"}
+              </button>
+            </div>
           </div>
         </div>
       )}
