@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import ProjectIcon from "../components/ProjectIcon";
 import Markdown from "../components/Markdown";
+import Gallery from "../components/Gallery";
 import { VoteStars, VoteButtons } from "../components/VoteButtons";
 import { ModPageSkeleton } from "../components/Skeletons";
 
@@ -19,6 +20,7 @@ function ModPage() {
   const [voteSaving, setVoteSaving] = useState(false);
   const [voteError, setVoteError] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
+  const [media, setMedia] = useState([]);
 
   function formatDate(value) {
     if (!value) return "—";
@@ -79,6 +81,26 @@ function ModPage() {
       cancelled = true;
     };
   }, [pageSlug]);
+
+  // Live vote stats (source of truth). Cached projects.like_count /
+  // dislike_count can lag behind the trigger, so compute from the votes table.
+  useEffect(() => {
+    let cancelled = false;
+    if (!project?.id) return;
+    supabase
+      .from("project_media")
+      .select("*")
+      .eq("project_id", project.id)
+      .order("sort_order")
+      .order("created_at")
+      .then(({ data, error }) => {
+        if (cancelled || error || !data) return;
+        setMedia(data);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.id]);
 
   // Live vote stats (source of truth). Cached projects.like_count /
   // dislike_count can lag behind the trigger, so compute from the votes table.
@@ -387,7 +409,10 @@ function ModPage() {
 
           <div className="pt-6">
             {activeTab === "overview" && (
-              <Markdown text={project.description} />
+              <>
+                <Gallery items={media} />
+                <Markdown text={project.description} />
+              </>
             )}
 
             {activeTab === "versions" && (

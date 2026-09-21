@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { extractYouTubeId } from "../lib/youtube";
 import { useAuth } from "../context/AuthContext";
 import ProjectIcon from "../components/ProjectIcon";
 import Markdown from "../components/Markdown";
@@ -12,6 +13,7 @@ const VISIBILITIES = ["public", "unlisted", "private"];
 const TABS = [
   { id: "general", label: "General" },
   { id: "description", label: "Description" },
+  { id: "gallery", label: "Gallery" },
   { id: "tags", label: "Tags" },
   { id: "versions", label: "Versions" },
   { id: "danger", label: "Danger Zone" },
@@ -36,6 +38,10 @@ function ProjectSettings() {
   const [allTags, setAllTags] = useState([]);
   const [selectedTagIds, setSelectedTagIds] = useState([]);
   const [pendingTab, setPendingTab] = useState(null);
+  const [media, setMedia] = useState([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [gallerySaving, setGallerySaving] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
 
   // Tracks whether the form differs from the last saved state, so we can
   // warn before discarding edits (tab switch, in-app navigation, tab close).
@@ -158,6 +164,158 @@ function ProjectSettings() {
       cancelled = true;
     };
   }, [project?.id, project?.game_id]);
+
+  useEffect(() => {
+    if (!project?.id) return;
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMediaLoading(true);
+    supabase
+      .from("project_media")
+      .select("*")
+      .eq("project_id", project.id)
+      .order("sort_order")
+      .order("created_at")
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        setMediaLoading(false);
+        if (!error) setMedia(data ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.id]);
+
+  async function handleGalleryUpload(e) {
+    const files = [...(e.target.files ?? [])];
+    if (!files.length || !project || gallerySaving) return;
+    setGallerySaving(true);
+    setMessage(null);
+    try {
+      const base = media.length
+        ? Math.max(...media.map((m) => m.sort_order ?? 0)) + 1
+        : 0;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const ext = file.name.includes(".")
+          ? file.name.split(".").pop()
+          : "png";
+        const path = `${user.id}/${project.id}/gallery-${Date.now()}-${i}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("project-gallery")
+          .upload(path, file);
+        if (uploadError) throw uploadError;
+        const { data: publicData } = supabase.storage
+          .from("project-gallery")
+          .getPublicUrl(path);
+        const { data, error: insertError } = await supabase
+          .from("project_media")
+          .insert({
+            project_id: project.id,
+            kind: "image",
+            storage_path: path,
+            image_url: publicData.publicUrl,
+            sort_order: base + i,
+          })
+          .select()
+          .single();
+        if (insertError) throw insertError;
+        setMedia((m) => [...m, data]);
+      }
+    } catch (err) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
+      setGallerySaving(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleAddYouTube(e) {
+    if (e) e.preventDefault();
+    if (!project || gallerySaving || !youtubeUrl.trim()) return;
+    const videoId = extractYouTubeId(youtubeUrl);
+    if (!videoId) {
+      setMessage({ type: "error", text: "Could not parse a YouTube video ID from that URL." });
+      return;
+    }
+    setGallerySaving(true);
+    setMessage(null);
+    const nextOrder = media.length
+      ? Math.max(...media.map((m) => m.sort_order ?? 0)) + 1
+      : 0;
+    const { data, error } = await supabase
+      .from("project_media")
+      .insert({
+        project_id: project.id,
+        kind: "youtube",
+        youtube_id: videoId,
+        sort_order: nextOrder,
+      })
+      .select()
+      .single();
+    setGallerySaving(false);
+    if (error) {
+      setMessage({ type: "error", text: error.message });
+      return;
+    }
+    setMedia((m) => [...m, data]);
+    setYoutubeUrl("");
+  }
+
+  async function handleDeleteMedia(item) {
+    setMessage(null);
+    const { error } = await supabase
+      .from("project_media")
+      .delete()
+      .eq("id", item.id);
+    if (error) {
+      setMessage({ type: "error", text: error.message });
+      return;
+    }
+    if (item.kind === "image" && item.storage_path) {
+      await supabase.storage.from("project-gallery").remove([item.storage_path]);
+    }
+    setMedia((m) => m.filter((x) => x.id !== item.id));
+  }
+
+  async function moveMedia(item, dir) {
+    const sorted = [...media].sort(
+      (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+    );
+    const idx = sorted.findIndex((x) => x.id === item.id);
+    const other = sorted[idx + dir];
+    if (!other) return;
+    setMessage(null);
+    const [{ error: err1 }, { error: err2 }] = await Promise.all([
+      supabase.from("project_media").update({ sort_order: other.sort_order ?? 0 }).eq("id", item.id),
+      supabase.from("project_media").update({ sort_order: item.sort_order ?? 0 }).eq("id", other.id),
+    ]);
+    if (err1 || err2) {
+      setMessage({ type: "error", text: (err1 ?? err2).message });
+      return;
+    }
+    setMedia((m) =>
+      m.map((x) =>
+        x.id === item.id
+          ? { ...x, sort_order: other.sort_order ?? 0 }
+          : x.id === other.id
+            ? { ...x, sort_order: item.sort_order ?? 0 }
+            : x
+      )
+    );
+  }
+
+  async function updateCaption(item, caption) {
+    const { error } = await supabase
+      .from("project_media")
+      .update({ caption: caption || null })
+      .eq("id", item.id);
+    if (error) {
+      setMessage({ type: "error", text: error.message });
+      return;
+    }
+    setMedia((m) => m.map((x) => (x.id === item.id ? { ...x, caption } : x)));
+  }
 
   async function toggleProjectTag(tagId) {
     const selected = selectedTagIds.includes(tagId);
@@ -622,6 +780,120 @@ function ProjectSettings() {
                     )}
                   </div>
                 </form>
+              </section>
+            )}
+
+            {activeTab === "gallery" && (
+              <section className="rounded border border-zinc-800 bg-zinc-900 p-6">
+                <h2 className="mb-1 text-lg font-semibold text-white">Gallery</h2>
+                <p className="mb-4 text-sm text-zinc-500">
+                  Images upload to gallery storage, YouTube videos are embedded
+                  by URL. Changes save instantly and show on the project page.
+                </p>
+
+                <div className="mb-4 flex flex-col gap-3">
+                  <div>
+                    <label className={labelClass}>Upload images</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleGalleryUpload}
+                      disabled={gallerySaving}
+                      className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white disabled:opacity-50"
+                    />
+                  </div>
+                  <form onSubmit={handleAddYouTube} className="flex gap-2">
+                    <input
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      placeholder="Paste YouTube URL (e.g. https://youtu.be/dQw4w9WgXcQ)"
+                      className={inputClass}
+                    />
+                    <button
+                      disabled={gallerySaving || !youtubeUrl.trim()}
+                      className="shrink-0 rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:opacity-50"
+                    >
+                      Add video
+                    </button>
+                  </form>
+                </div>
+
+                {mediaLoading ? (
+                  <p className="text-sm text-zinc-400">Loading gallery…</p>
+                ) : media.length === 0 ? (
+                  <p className="text-sm text-zinc-400">
+                    No gallery items yet. Add screenshots or a trailer.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-3">
+                    {[...media]
+                      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+                      .map((item) => (
+                        <li
+                          key={item.id}
+                          className="flex items-start gap-3 rounded border border-zinc-800 bg-zinc-950 p-3"
+                        >
+                          {item.kind === "youtube" ? (
+                            <img
+                              src={`https://i.ytimg.com/vi/${item.youtube_id}/mqdefault.jpg`}
+                              alt=""
+                              className="h-14 w-24 shrink-0 rounded object-cover"
+                            />
+                          ) : (
+                            <img
+                              src={item.image_url}
+                              alt=""
+                              className="h-14 w-24 shrink-0 rounded object-cover"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs uppercase text-zinc-500">
+                              {item.kind === "youtube"
+                                ? `YouTube • ${item.youtube_id}`
+                                : "Image"}
+                            </p>
+                            <input
+                              defaultValue={item.caption ?? ""}
+                              key={`${item.id}-${item.caption ?? ""}`}
+                              onBlur={(e) => {
+                                if (e.target.value !== (item.caption ?? "")) {
+                                  updateCaption(item, e.target.value.trim());
+                                }
+                              }}
+                              placeholder="Caption (optional)"
+                              className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm text-white"
+                            />
+                          </div>
+                          <div className="flex shrink-0 gap-1">
+                            <button
+                              type="button"
+                              onClick={() => moveMedia(item, -1)}
+                              aria-label="Move earlier"
+                              className="rounded border border-zinc-700 px-2 py-1 text-sm text-zinc-300 hover:border-zinc-500 hover:text-white"
+                            >
+                              ←
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveMedia(item, 1)}
+                              aria-label="Move later"
+                              className="rounded border border-zinc-700 px-2 py-1 text-sm text-zinc-300 hover:border-zinc-500 hover:text-white"
+                            >
+                              →
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMedia(item)}
+                              className="rounded bg-red-600 px-2 py-1 text-sm text-white hover:bg-red-500"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                  </ul>
+                )}
               </section>
             )}
 
