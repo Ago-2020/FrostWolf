@@ -39,13 +39,16 @@ function DropdownSection({ title, badge, defaultOpen = false, children }) {
   );
 }
 
-function CheckRow({ checked, label, count, onChange }) {
+function CheckRow({ checked, label, count, onChange, disabled = false }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-zinc-300 hover:bg-zinc-800/60 hover:text-white">
+    <label
+      className={`flex items-center gap-2 rounded px-1 py-0.5 text-sm text-zinc-300 hover:bg-zinc-800/60 hover:text-white ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+    >
       <input
         type="checkbox"
         checked={checked}
         onChange={onChange}
+        disabled={disabled}
         className="h-3.5 w-3.5 accent-blue-600"
       />
       <span className="flex-1 truncate">{label}</span>
@@ -56,6 +59,15 @@ function CheckRow({ checked, label, count, onChange }) {
   );
 }
 
+function OptionsSkeleton({ rows = 3 }) {
+  return (
+    <div aria-hidden className="flex animate-pulse flex-col gap-1.5 px-1">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="h-4 rounded bg-zinc-800" />
+      ))}
+    </div>
+  );
+}
 const inputClass =
   "w-full rounded border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-white [color-scheme:dark]";
 
@@ -80,11 +92,12 @@ function ModFiltersSidebar({
   onDateToChange,
   activeFilterCount,
   onClear,
+  isLoading = false,
 }) {
   const dateBadge = (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
 
   return (
-    <div className="flex flex-col gap-4 rounded border border-zinc-800 bg-zinc-900 p-4">
+    <div aria-busy={isLoading || undefined} className="flex flex-col gap-4 rounded border border-zinc-800 bg-zinc-900 p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-white">
           Filters{" "}
@@ -110,15 +123,18 @@ function ModFiltersSidebar({
         </p>
         <input
           type="text"
-          placeholder="Search mods (e.g. sodium)..."
+          placeholder={isLoading ? "Loading..." : "Search mods (e.g. sodium)..."}
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+          disabled={isLoading}
+          className="w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white disabled:opacity-60"
         />
       </div>
 
       <DropdownSection title="Tags" badge={selectedTags.length} defaultOpen>
-        {tags.length === 0 ? (
+        {isLoading ? (
+          <OptionsSkeleton rows={4} />
+        ) : tags.length === 0 ? (
           <p className="px-1 text-xs text-zinc-500">
             No tags for this game yet.
           </p>
@@ -141,7 +157,9 @@ function ModFiltersSidebar({
         title="Game versions"
         badge={selectedGameVersions.length}
       >
-        {gameVersions.length === 0 ? (
+        {isLoading ? (
+          <OptionsSkeleton rows={3} />
+        ) : gameVersions.length === 0 ? (
           <p className="px-1 text-xs text-zinc-500">
             No game versions listed.
           </p>
@@ -160,7 +178,9 @@ function ModFiltersSidebar({
       </DropdownSection>
 
       <DropdownSection title="Loaders" badge={selectedLoaders.length}>
-        {loaders.length === 0 ? (
+        {isLoading ? (
+          <OptionsSkeleton rows={2} />
+        ) : loaders.length === 0 ? (
           <p className="px-1 text-xs text-zinc-500">No loaders listed.</p>
         ) : (
           loaders.map((l) => (
@@ -184,6 +204,7 @@ function ModFiltersSidebar({
             label={c}
             checked={selectedChannels.includes(c)}
             onChange={() => onToggleChannel(c)}
+            disabled={isLoading}
           />
         ))}
       </DropdownSection>
@@ -196,7 +217,8 @@ function ModFiltersSidebar({
             value={dateFrom}
             max={dateTo || undefined}
             onChange={(e) => onDateFromChange(e.target.value)}
-            className={`mt-1 ${inputClass}`}
+            disabled={isLoading}
+            className={`mt-1 ${inputClass} disabled:opacity-60`}
           />
         </label>
         <label className="px-1 text-xs text-zinc-400">
@@ -206,25 +228,11 @@ function ModFiltersSidebar({
             value={dateTo}
             min={dateFrom || undefined}
             onChange={(e) => onDateToChange(e.target.value)}
-            className={`mt-1 ${inputClass}`}
+            disabled={isLoading}
+            className={`mt-1 ${inputClass} disabled:opacity-60`}
           />
         </label>
       </DropdownSection>
-    </div>
-  );
-}
-
-export function ModFiltersSidebarSkeleton() {
-  return (
-    <div
-      aria-hidden
-      className="flex animate-pulse flex-col gap-4 rounded border border-zinc-800 bg-zinc-900 p-4"
-    >
-      <div className="h-4 w-20 rounded bg-zinc-700" />
-      <div className="h-9 rounded bg-zinc-800" />
-      {[160, 128, 96, 80, 72].map((h) => (
-        <div key={h} className="rounded bg-zinc-800" style={{ height: h }} />
-      ))}
     </div>
   );
 }

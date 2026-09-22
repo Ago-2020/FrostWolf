@@ -3,9 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import ProjectIcon from "../components/ProjectIcon";
 import ModCard from "../components/ModCard";
-import ModFiltersSidebar, {
-  ModFiltersSidebarSkeleton,
-} from "../components/ModFiltersSidebar";
+import ModFiltersSidebar from "../components/ModFiltersSidebar";
 
 const CHANNELS = ["release", "beta", "alpha"];
 const PAGE_SIZE = 10;
@@ -455,11 +453,7 @@ function GamePage() {
         <aside className="w-full shrink-0 lg:w-64">
           <div className={`${mobileFiltersOpen ? "block" : "hidden"} lg:block`}>
             <div className="lg:sticky lg:top-6">
-              {loading ? (
-                <ModFiltersSidebarSkeleton />
-              ) : (
-                <ModFiltersSidebar {...sidebarProps} />
-              )}
+              <ModFiltersSidebar {...sidebarProps} isLoading={loading} />
             </div>
           </div>
         </aside>
