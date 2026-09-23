@@ -5,6 +5,7 @@ import {
 } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import Nav from "./components/Nav";
+import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
 import ModPage from "./pages/ModPage";
@@ -20,8 +21,13 @@ import GamePage from "./pages/GamePage";
 function Layout() {
   return (
     <AuthProvider>
-      <Nav />
-      <Outlet />
+      <div className="flex min-h-screen flex-col bg-zinc-950">
+        <Nav />
+        <div className="flex-1">
+          <Outlet />
+        </div>
+        <Footer />
+      </div>
     </AuthProvider>
   );
 }
