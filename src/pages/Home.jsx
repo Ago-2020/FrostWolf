@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import ProjectIcon from "../components/ProjectIcon";
+import GameBanner from "../components/GameBanner";
 import { GameCardSkeleton } from "../components/Skeletons";
 
 function Home() {
@@ -14,7 +15,7 @@ function Home() {
 
     supabase
       .from("games")
-      .select("id, name, slug, icon_url")
+        .select("id, name, slug, icon_url, banner_url")
       .order("name")
       .then(({ data }) => {
         if (cancelled) return;
@@ -102,16 +103,29 @@ function Home() {
             <Link
               key={g.id}
               to={`/games/${g.slug}`}
-              className="flex items-center gap-3 rounded border border-zinc-800 bg-zinc-900 p-3 hover:border-zinc-600"
+              className="overflow-hidden rounded border border-zinc-800 bg-zinc-900 hover:border-zinc-600"
             >
-              <ProjectIcon
-                url={g.icon_url}
+              <GameBanner
+                url={g.banner_url}
                 name={g.name}
-                className="h-10 w-10 rounded-md border border-zinc-700"
+                className="aspect-[3/1] w-full object-cover"
+                fallback={
+                  <div
+                    aria-hidden
+                    className="aspect-[3/1] w-full bg-gradient-to-r from-blue-950 via-zinc-900 to-zinc-950"
+                  />
+                }
               />
-              <div>
-                <p className="font-semibold text-white">{g.name}</p>
-                <p className="text-xs text-zinc-500">/games/{g.slug}</p>
+              <div className="flex items-center gap-3 p-3">
+                <ProjectIcon
+                  url={g.icon_url}
+                  name={g.name}
+                  className="h-10 w-10 rounded-md border border-zinc-700"
+                />
+                <div>
+                  <p className="font-semibold text-white">{g.name}</p>
+                  <p className="text-xs text-zinc-500">/games/{g.slug}</p>
+                </div>
               </div>
             </Link>
           ))}

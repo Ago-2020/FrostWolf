@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import ProjectIcon from "../components/ProjectIcon";
+import GameBanner from "../components/GameBanner";
 import ModCard from "../components/ModCard";
 import ModFiltersSidebar from "../components/ModFiltersSidebar";
 
@@ -416,36 +417,47 @@ function GamePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
-      <div className="mb-8 flex items-center gap-4">
+      <div className="relative mb-8 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900">
         {loading ? (
-          <>
-            <div className="h-16 w-16 animate-pulse rounded-lg bg-zinc-800" />
-            <div className="flex flex-1 flex-col gap-2">
-              <div className="h-8 w-48 animate-pulse rounded bg-zinc-800" />
-              <div className="h-4 w-32 animate-pulse rounded bg-zinc-800" />
-            </div>
-          </>
+          <div className="aspect-[4/1] w-full animate-pulse bg-zinc-800" />
         ) : (
           <>
-            <ProjectIcon
-              url={game?.icon_url}
+            <GameBanner
+              url={game?.banner_url}
               name={game?.name}
-              className="h-16 w-16 rounded-lg border border-zinc-700 text-2xl"
+              fallback={
+                <div
+                  aria-hidden
+                  className="aspect-[4/1] w-full bg-gradient-to-r from-blue-950 via-zinc-900 to-zinc-950"
+                />
+              }
             />
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-white">{game?.name}</h1>
-              <p className="text-sm text-zinc-500">
-                {filteredProjects.length} of {projects.length} project(s)
-              </p>
+            {/* Readability gradient over the banner art */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/55 to-transparent"
+            />
+            <div className="absolute inset-x-0 bottom-0 flex items-center gap-4 p-4 sm:p-6">
+              <ProjectIcon
+                url={game?.icon_url}
+                name={game?.name}
+                className="h-16 w-16 rounded-lg border border-zinc-700 text-2xl"
+              />
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-3xl font-bold text-white">{game?.name}</h1>
+                <p className="text-sm text-zinc-400">
+                  {filteredProjects.length} of {projects.length} project(s)
+                </p>
+              </div>
+              <button
+                onClick={() => setMobileFiltersOpen((o) => !o)}
+                className="shrink-0 rounded border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-300 lg:hidden"
+              >
+                {mobileFiltersOpen ? "Hide filters" : "Show filters"}
+              </button>
             </div>
           </>
         )}
-        <button
-          onClick={() => setMobileFiltersOpen((o) => !o)}
-          className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-300 lg:hidden"
-        >
-          {mobileFiltersOpen ? "Hide filters" : "Show filters"}
-        </button>
       </div>
 
       <div className="flex flex-col gap-8 lg:flex-row">

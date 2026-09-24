@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import FrostWolfLogo from "./FrostWolfLogo";
 
 function Nav() {
   const { user, profile } = useAuth();
@@ -58,7 +59,8 @@ function Nav() {
 
   return (
     <nav className="flex items-center justify-between border-b border-zinc-800 bg-zinc-950 px-6 py-4">
-      <Link to="/" className="text-lg font-bold text-white">
+      <Link to="/" className="flex items-center gap-2 text-lg font-bold text-white">
+        <FrostWolfLogo className="h-8 w-8" />
         FrostWolf
       </Link>
 
