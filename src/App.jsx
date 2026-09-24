@@ -17,6 +17,7 @@ import NewMod from "./pages/NewMod";
 import ProjectSettings from "./pages/ProjectSettings";
 import UserPage from "./pages/UserPage";
 import GamePage from "./pages/GamePage";
+import NotFound from "./pages/NotFound";
 
 function Layout() {
   return (
@@ -77,6 +78,7 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      { path: "*", element: <NotFound /> },
     ],
   },
 ]);
