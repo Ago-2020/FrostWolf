@@ -16,12 +16,21 @@ function Footer() {
             Find and share game mods. © {year} FrostWolf.
           </p>
         </div>
-        <nav aria-label="Footer" className="flex items-center gap-4 text-sm">
+        <nav aria-label="Footer" className="flex flex-wrap items-center gap-4 text-sm">
           <Link to="/" className="text-zinc-400 hover:text-white">
             Games
           </Link>
           <Link to="/mods/new" className="text-zinc-400 hover:text-white">
             Share a mod
+          </Link>
+          <Link to="/terms" className="text-zinc-400 hover:text-white">
+            Terms
+          </Link>
+          <Link to="/privacy" className="text-zinc-400 hover:text-white">
+            Privacy
+          </Link>
+          <Link to="/rules" className="text-zinc-400 hover:text-white">
+            Rules
           </Link>
         </nav>
       </div>

@@ -61,6 +61,21 @@ function Login() {
           Sign up
         </Link>
       </p>
+      <p className="mt-3 text-xs text-zinc-500">
+        By continuing you agree to our{" "}
+        <Link to="/terms" className="text-blue-400 hover:underline">
+          Terms
+        </Link>
+        ,{" "}
+        <Link to="/privacy" className="text-blue-400 hover:underline">
+          Privacy Policy
+        </Link>
+        , and{" "}
+        <Link to="/rules" className="text-blue-400 hover:underline">
+          Community Rules
+        </Link>
+        .
+      </p>
     </div>
   );
 }

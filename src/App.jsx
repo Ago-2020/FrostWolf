@@ -17,6 +17,9 @@ import NewMod from "./pages/NewMod";
 import ProjectSettings from "./pages/ProjectSettings";
 import UserPage from "./pages/UserPage";
 import GamePage from "./pages/GamePage";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import Guidelines from "./pages/Guidelines";
 import NotFound from "./pages/NotFound";
 
 function Layout() {
@@ -54,6 +57,9 @@ const router = createBrowserRouter([
       { path: "/users/:id", element: <UserPage /> },
       { path: "/games/:gameSlug", element: <GamePage /> },
       { path: "/games/:gameSlug/:projectSlug", element: <ModPage /> },
+      { path: "/terms", element: <Terms /> },
+      { path: "/privacy", element: <Privacy /> },
+      { path: "/rules", element: <Guidelines /> },
       {
         path: "/dashboard",
         element: (

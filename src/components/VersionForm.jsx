@@ -54,6 +54,7 @@ function VersionForm({ projectId, game_id, onDone }) {
   const [file, setFile] = useState(null);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [accepted, setAccepted] = useState(false);
   const [status, setStatus] = useState("idle"); // idle | uploading | saving | linking | done
   const [changelogTab, setChangelogTab] = useState("edit");
   const [form, setForm] = useState({
@@ -139,6 +140,11 @@ function VersionForm({ projectId, game_id, onDone }) {
 
     if (!user?.id) {
       setError("You must be logged in to publish a version.");
+      return;
+    }
+
+    if (!accepted) {
+      setError("Please confirm you have the rights to share this file and it follows the Community Rules.");
       return;
     }
 
@@ -374,8 +380,26 @@ function VersionForm({ projectId, game_id, onDone }) {
           </p>
         )}
       </div>
+      <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-400">
+        <input
+          type="checkbox"
+          checked={accepted}
+          onChange={(e) => setAccepted(e.target.checked)}
+          required
+          disabled={busy}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600 disabled:opacity-50"
+        />
+        <span>
+          I have the rights to share this file, it contains no malware, and
+          it follows the{" "}
+          <a href="/rules" className="text-blue-400 hover:underline">
+            Community Rules
+          </a>
+          .
+        </span>
+      </label>
       <button
-        disabled={busy || status === "done"}
+        disabled={busy || status === "done" || !accepted}
         className="self-start rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {statusLabel()}

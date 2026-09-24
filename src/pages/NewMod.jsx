@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { FormSkeleton } from "../components/Skeletons";
@@ -23,6 +23,7 @@ function NewMod() {
   const [gamesError, setGamesError] = useState(null);
   const [error, setError] = useState(null);
   const [slugTouched, setSlugTouched] = useState(false);
+  const [accepted, setAccepted] = useState(false);
   const [form, setForm] = useState({
     name: "",
     slug: "",
@@ -64,6 +65,11 @@ function NewMod() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+
+    if (!accepted) {
+      setError("Please confirm you have the rights to share this and it follows the Community Rules.");
+      return;
+    }
 
     const slug = slugify(form.slug) || slugify(form.name);
 
@@ -178,7 +184,31 @@ function NewMod() {
               className={inputClass}
             />
           </div>
-          <button className="rounded bg-blue-600 py-2 font-medium text-white hover:bg-blue-500">
+          <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-400">
+            <input
+              type="checkbox"
+              checked={accepted}
+              onChange={(e) => setAccepted(e.target.checked)}
+              required
+              className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600"
+            />
+            <span>
+              I have the rights to share this, it contains no malware, and it
+              follows the{" "}
+              <Link to="/rules" className="text-blue-400 hover:underline">
+                Community Rules
+              </Link>{" "}
+              and{" "}
+              <Link to="/terms" className="text-blue-400 hover:underline">
+                Terms
+              </Link>
+              .
+            </span>
+          </label>
+          <button
+            disabled={!accepted}
+            className="rounded bg-blue-600 py-2 font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
             Create Project
           </button>
         </form>
