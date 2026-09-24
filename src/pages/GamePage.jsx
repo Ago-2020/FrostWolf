@@ -419,32 +419,47 @@ function GamePage() {
     <div className="mx-auto max-w-6xl px-6 py-12">
       <div className="relative mb-8 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900">
         {loading ? (
-          <div className="aspect-[4/1] w-full animate-pulse bg-zinc-800" />
+          <div className="h-24 w-full animate-pulse bg-zinc-800 sm:aspect-[4/1] sm:h-auto" />
         ) : (
           <>
-            <GameBanner
-              url={game?.banner_url}
-              name={game?.name}
-              fallback={
-                <div
-                  aria-hidden
-                  className="aspect-[4/1] w-full bg-gradient-to-r from-blue-950 via-zinc-900 to-zinc-950"
-                />
-              }
-            />
-            {/* Readability gradient over the banner art */}
+            {/* Mobile: faint banner backdrop at 10% opacity, no gradient */}
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/55 to-transparent"
-            />
-            <div className="absolute inset-x-0 bottom-0 flex items-center gap-4 p-4 sm:p-6">
+              className="pointer-events-none absolute inset-0 sm:hidden"
+            >
+              <GameBanner
+                url={game?.banner_url}
+                name={game?.name}
+                className="h-full w-full object-cover opacity-10"
+                fallback={null}
+              />
+            </div>
+            {/* Desktop: full banner + readability gradient */}
+            <div className="hidden sm:block">
+              <GameBanner
+                url={game?.banner_url}
+                name={game?.name}
+                fallback={
+                  <div
+                    aria-hidden
+                    className="aspect-[4/1] w-full bg-gradient-to-r from-blue-950 via-zinc-900 to-zinc-950"
+                  />
+                }
+              />
+              {/* Readability gradient over the banner art */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 hidden bg-gradient-to-t from-zinc-950 via-zinc-950/55 to-transparent sm:block"
+              />
+            </div>
+            <div className="relative flex items-center gap-3 p-4 sm:absolute sm:inset-x-0 sm:bottom-0 sm:gap-4 sm:p-6">
               <ProjectIcon
                 url={game?.icon_url}
                 name={game?.name}
-                className="h-16 w-16 rounded-lg border border-zinc-700 text-2xl"
+                className="h-12 w-12 rounded-lg border border-zinc-700 text-xl sm:h-16 sm:w-16 sm:text-2xl"
               />
               <div className="min-w-0 flex-1">
-                <h1 className="truncate text-3xl font-bold text-white">{game?.name}</h1>
+                <h1 className="truncate text-2xl font-bold text-white sm:text-3xl">{game?.name}</h1>
                 <p className="text-sm text-zinc-400">
                   {filteredProjects.length} of {projects.length} project(s)
                 </p>
