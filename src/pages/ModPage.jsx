@@ -5,8 +5,63 @@ import { useAuth } from "../context/AuthContext";
 import ProjectIcon from "../components/ProjectIcon";
 import Markdown from "../components/Markdown";
 import Gallery from "../components/Gallery";
+import VersionFilters from "../components/VersionFilters";
+import { filterVersions } from "../lib/versionFilters";
 import { VoteStars, VoteButtons } from "../components/VoteButtons";
 import { ModPageSkeleton } from "../components/Skeletons";
+
+function VersionDownloadList({ versions, onDownload }) {
+  if (versions.length === 0) {
+    return (
+      <p className="text-zinc-400">No versions match these filters.</p>
+    );
+  }
+  return (
+    <ul className="flex max-h-80 flex-col gap-3 overflow-y-auto">
+      {versions.map((version) => {
+        const gv = (version.project_version_game_versions ?? [])
+          .map((x) => x.game_versions?.version)
+          .filter(Boolean);
+        const ld = (version.project_version_loaders ?? [])
+          .map((x) => x.loaders?.name)
+          .filter(Boolean);
+        return (
+          <li
+            key={version.id}
+            className="flex items-center justify-between gap-3 rounded border border-zinc-800 bg-zinc-950 p-4"
+          >
+            <div className="min-w-0">
+              <p className="font-semibold text-white">
+                {version.version}
+                {version.release_channel !== "release" && (
+                  <span className="ml-2 rounded bg-zinc-700 px-2 py-0.5 text-xs uppercase text-zinc-300">
+                    {version.release_channel}
+                  </span>
+                )}
+              </p>
+              <p className="text-sm text-zinc-500">
+                {version.download_count} downloads
+              </p>
+              {(gv.length > 0 || ld.length > 0) && (
+                <p className="mt-1 text-xs text-zinc-500">
+                  {[gv.join(", "), ld.join(", ")]
+                    .filter(Boolean)
+                    .join(" • ")}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => onDownload(version)}
+              className="shrink-0 rounded bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-500"
+            >
+              Download
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 function ModPage() {
   const { slug, projectSlug } = useParams();
@@ -21,6 +76,8 @@ function ModPage() {
   const [voteError, setVoteError] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [media, setMedia] = useState([]);
+  const [downloadGameVersionId, setDownloadGameVersionId] = useState("");
+  const [downloadLoaderId, setDownloadLoaderId] = useState("");
 
   function formatDate(value) {
     if (!value) return "—";
@@ -31,6 +88,13 @@ function ModPage() {
       month: "short",
       day: "numeric",
     });
+  }
+
+  function formatCompact(value) {
+    const n = Number(value) || 0;
+    if (n < 1000) return `${n}`;
+    if (n < 1_000_000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+    return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   }
 
   function formatFileSize(bytes) {
@@ -290,6 +354,17 @@ function ModPage() {
     v.changelog?.trim()
   );
 
+  // Download modal: nothing listed until the player picks a game
+  // version and/or loader, then show only the latest match.
+  const downloadFiltered = filterVersions(versions, {
+    gameVersionId: downloadGameVersionId,
+    loaderId: downloadLoaderId,
+  });
+  const downloadFiltersActive = Boolean(
+    downloadGameVersionId || downloadLoaderId
+  );
+  const downloadList = downloadFiltered.slice(0, 1);
+
   const tabs = [
     { id: "overview", label: "Overview" },
     { id: "versions", label: `Versions (${versions.length})` },
@@ -309,6 +384,29 @@ function ModPage() {
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
       {/* Header */}
+      {project.games?.slug && (
+        <Link
+          to={`/games/${project.games.slug}`}
+          className="mb-3 inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-white"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            className="h-3.5 w-3.5"
+            aria-hidden
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15 5l-7 7 7 7"
+            />
+          </svg>
+          {project.games.name} mods
+        </Link>
+      )}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <ProjectIcon
           url={project.icon_url}
@@ -317,22 +415,18 @@ function ModPage() {
         />
         <div className="min-w-0 flex-1">
           <h1 className="text-3xl font-bold text-white">{project.name}</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            {project.games?.name} • {project.project_type}
-          </p>
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <VoteStars likes={likeCount} dislikes={dislikeCount} size="md" />
-            <span className="text-zinc-700" aria-hidden>
-              |
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-zinc-400">
+          {project.summary && (
+            <p className="mt-1 text-zinc-400">{project.summary}</p>
+          )}
+          <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-2 text-sm text-zinc-300">
+            <span className="inline-flex items-center gap-1.5">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth={1.8}
-                className="h-4 w-4 text-zinc-500"
+                strokeWidth={2}
+                className="h-4 w-4 text-zinc-400"
                 aria-hidden
               >
                 <path
@@ -341,25 +435,46 @@ function ModPage() {
                   d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 19h16"
                 />
               </svg>
-              {(project.download_count ?? 0).toLocaleString()} downloads
+              {formatCompact(project.download_count)} downloads
             </span>
+            <span className="text-zinc-600" aria-hidden>
+              •
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                className="h-4 w-4 text-zinc-400"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"
+                />
+              </svg>
+              {formatCompact(likeCount)} likes
+            </span>
+            {tags.length > 0 && (
+              <>
+                <span className="text-zinc-600" aria-hidden>
+                  •
+                </span>
+                {tags.map((t) => (
+                  <Link
+                    key={t.id}
+                    to={`/games/${project.games?.slug}?tag=${t.slug}`}
+                    className="rounded-md border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-xs text-zinc-300 hover:border-zinc-500 hover:text-white"
+                  >
+                    {t.name}
+                  </Link>
+                ))}
+              </>
+            )}
           </div>
-          {project.summary && (
-            <p className="mt-3 text-zinc-300">{project.summary}</p>
-          )}
-          {tags.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {tags.map((t) => (
-                <Link
-                  key={t.id}
-                  to={`/games/${project.games?.slug}?tag=${t.slug}`}
-                  className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-0.5 text-xs text-zinc-300 hover:border-zinc-500 hover:text-white"
-                >
-                  {t.name}
-                </Link>
-              ))}
-            </div>
-          )}
         </div>
         <div className="shrink-0 text-left sm:text-right">
           <div className="flex items-center gap-2 sm:justify-end">
@@ -372,7 +487,11 @@ function ModPage() {
               </Link>
             )}
             <button
-              onClick={() => setDownloadOpen(true)}
+              onClick={() => {
+                setDownloadGameVersionId("");
+                setDownloadLoaderId("");
+                setDownloadOpen(true);
+              }}
               className="rounded bg-blue-600 px-5 py-2 font-medium text-white hover:bg-blue-500"
             >
               Download
@@ -727,44 +846,35 @@ function ModPage() {
             {versions.length === 0 ? (
               <p className="text-zinc-400">No versions published yet.</p>
             ) : (
-              <ul className="flex max-h-80 flex-col gap-3 overflow-y-auto">
-                {versions.map((version) => {
-                  const { gv, ld } = versionMeta(version);
-                  return (
-                  <li
-                    key={version.id}
-                    className="flex items-center justify-between gap-3 rounded border border-zinc-800 bg-zinc-950 p-4"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-semibold text-white">
-                        {version.version}
-                        {version.release_channel !== "release" && (
-                          <span className="ml-2 rounded bg-zinc-700 px-2 py-0.5 text-xs uppercase text-zinc-300">
-                            {version.release_channel}
-                          </span>
-                        )}
+              <>
+                <div className="mb-4">
+                  <VersionFilters
+                    versions={versions}
+                    gameVersionId={downloadGameVersionId}
+                    loaderId={downloadLoaderId}
+                    onGameVersionChange={setDownloadGameVersionId}
+                    onLoaderChange={setDownloadLoaderId}
+                  />
+                </div>
+                {downloadFiltersActive ? (
+                  <>
+                    {downloadList.length > 0 && (
+                      <p className="mb-3 text-xs text-zinc-500">
+                        Showing the latest version matching your filters.
                       </p>
-                      <p className="text-sm text-zinc-500">
-                        {version.download_count} downloads
-                      </p>
-                      {(gv.length > 0 || ld.length > 0) && (
-                        <p className="mt-1 text-xs text-zinc-500">
-                          {[gv.join(", "), ld.join(", ")]
-                            .filter(Boolean)
-                            .join(" • ")}
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => downloadVersion(version)}
-                      className="shrink-0 rounded bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-500"
-                    >
-                      Download
-                    </button>
-                  </li>
-                  );
-                })}
-              </ul>
+                    )}
+                    <VersionDownloadList
+                      versions={downloadList}
+                      onDownload={downloadVersion}
+                    />
+                  </>
+                ) : (
+                  <p className="text-sm text-zinc-500">
+                    Select a game version and loader above to find your
+                    download.
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>

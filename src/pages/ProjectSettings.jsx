@@ -5,8 +5,15 @@ import { extractYouTubeId } from "../lib/youtube";
 import { useAuth } from "../context/AuthContext";
 import ProjectIcon from "../components/ProjectIcon";
 import Markdown from "../components/Markdown";
+import Modal from "../components/Modal";
 import VersionForm from "../components/VersionForm";
+import VersionMenu from "../components/VersionMenu";
+import VersionFilters from "../components/VersionFilters";
+import EditChangelogModal from "../components/EditChangelogModal";
 import { FormSkeleton } from "../components/Skeletons";
+import { formatDate, formatRelativeTime } from "../lib/format";
+import { filterVersions } from "../lib/versionFilters";
+import { downloadVersionFile } from "../lib/versionDownload";
 
 const VISIBILITIES = ["public", "unlisted", "private"];
 
@@ -31,6 +38,10 @@ function ProjectSettings() {
   const [message, setMessage] = useState(null);
   const [saving, setSaving] = useState(false);
   const [showVersionForm, setShowVersionForm] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [editingVersion, setEditingVersion] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [filterGameVersionId, setFilterGameVersionId] = useState("");
   const [iconFile, setIconFile] = useState(null);
   const [iconPreview, setIconPreview] = useState(null);
   const [descriptionTab, setDescriptionTab] = useState("edit");
@@ -94,7 +105,7 @@ function ProjectSettings() {
     supabase
       .from("projects")
       .select(
-        "*, games ( name, slug ), project_versions!project_versions_project_id_fkey ( * )"
+        "*, games ( name, slug ), project_versions!project_versions_project_id_fkey ( *, project_version_game_versions ( game_versions ( id, version, released_at ) ), project_version_loaders ( loaders ( id, name, slug ) ) )"
       )
       .eq("slug", slug)
       .maybeSingle()
@@ -126,7 +137,7 @@ function ProjectSettings() {
     supabase
       .from("projects")
       .select(
-        "*, games ( name, slug ), project_versions!project_versions_project_id_fkey ( * )"
+        "*, games ( name, slug ), project_versions!project_versions_project_id_fkey ( *, project_version_game_versions ( game_versions ( id, version, released_at ) ), project_version_loaders ( loaders ( id, name, slug ) ) )"
       )
       .eq("slug", slug)
       .maybeSingle()
@@ -485,18 +496,74 @@ function ProjectSettings() {
     blocker.proceed();
   }
 
-  async function deleteVersion(versionId) {
+  async function deleteVersion(version) {
+    if (
+      !window.confirm(
+        `Delete version "${version.version}"? Its file will be removed too.`
+      )
+    ) {
+      return;
+    }
+    setOpenMenuId(null);
+
     const { error: deleteError } = await supabase
       .from("project_versions")
       .delete()
-      .eq("id", versionId);
+      .eq("id", version.id);
 
     if (deleteError) {
       setMessage({ type: "error", text: deleteError.message });
       return;
     }
 
+    // Remove the storage file too (skip legacy external URLs).
+    if (version.file_path && !/^https?:\/\//.test(version.file_path)) {
+      const { error: storageError } = await supabase.storage
+        .from("project-files")
+        .remove([version.file_path]);
+      if (storageError) {
+        console.error("Failed to remove version file:", storageError);
+      }
+    }
+
+    setMessage({ type: "success", text: `Version ${version.version} deleted.` });
     loadProject();
+  }
+
+  async function downloadVersion(version) {
+    setDownloadingId(version.id);
+    const { error } = await downloadVersionFile(version);
+    setDownloadingId(null);
+    setOpenMenuId(null);
+    if (error) {
+      setMessage({ type: "error", text: error.message });
+    }
+  }
+
+  // Badge letter per release channel (R/B/A), styled like the site's
+  // zinc icon fallback.
+  function channelBadge(channel) {
+    if (channel === "beta") {
+      return "B";
+    }
+    if (channel === "alpha") {
+      return "A";
+    }
+    return "R";
+  }
+
+  // Collapse the supported game versions into a single range label,
+  // e.g. "1.20.1–1.20.6". Ordered by release date when known.
+  function gameVersionRange(gameVersions) {
+    if (gameVersions.length === 0) return null;
+    const sorted = [...gameVersions].sort((a, b) => {
+      if (a.released_at && b.released_at) {
+        return new Date(a.released_at) - new Date(b.released_at);
+      }
+      return a.version.localeCompare(b.version, undefined, { numeric: true });
+    });
+    if (sorted.length === 1) return sorted[0].version;
+    return `${sorted[0].version} — ${sorted[sorted.length - 1].version}`;
   }
 
   async function deleteProject() {
@@ -542,6 +609,9 @@ function ProjectSettings() {
   const labelClass = "mb-1 block text-sm font-medium text-zinc-300";
   const inputClass =
     "w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white";
+  const visibleVersions = filterVersions(project.project_versions, {
+    gameVersionId: filterGameVersionId,
+  }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12">
@@ -937,15 +1007,18 @@ function ProjectSettings() {
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-white">Versions</h2>
                   <button
-                    onClick={() => setShowVersionForm((s) => !s)}
+                    onClick={() => setShowVersionForm(true)}
                     className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500"
                   >
-                    {showVersionForm ? "Cancel" : "Add Version"}
+                    Add Version
                   </button>
                 </div>
 
                 {showVersionForm && (
-                  <div className="mb-6 border-b border-zinc-800 pb-6">
+                  <Modal
+                    title={`Add version to ${project.name}`}
+                    onClose={() => setShowVersionForm(false)}
+                  >
                     <VersionForm
                       projectId={project.id}
                       game_id={project.game_id}
@@ -954,7 +1027,7 @@ function ProjectSettings() {
                         loadProject();
                       }}
                     />
-                  </div>
+                  </Modal>
                 )}
 
                 {project.project_versions.length === 0 ? (
@@ -962,35 +1035,170 @@ function ProjectSettings() {
                     No versions published yet.
                   </p>
                 ) : (
-                  <ul className="flex flex-col gap-3">
-                    {project.project_versions.map((version) => (
-                      <li
-                        key={version.id}
-                        className="flex items-center justify-between rounded border border-zinc-800 bg-zinc-950 p-4"
-                      >
-                        <div>
-                          <p className="font-semibold text-white">
-                            {version.version}
-                            {version.release_channel !== "release" && (
-                              <span className="ml-2 rounded bg-zinc-700 px-2 py-0.5 text-xs uppercase text-zinc-300">
-                                {version.release_channel}
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-sm text-zinc-500">
-                            {version.download_count} downloads •{" "}
-                            {version.file_name ?? "no file"}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => deleteVersion(version.id)}
-                          className="rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-500"
-                        >
-                          Delete
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <div className="mb-4">
+                      <VersionFilters
+                        versions={project.project_versions}
+                        gameVersionId={filterGameVersionId}
+                        onGameVersionChange={setFilterGameVersionId}
+                        showLoader={false}
+                      />
+                      {(filterGameVersionId) && (
+                      <p className="mt-2 text-xs text-zinc-500">
+                        Showing {visibleVersions.length} of{" "}
+                        {project.project_versions.length} versions.
+                      </p>
+                    )}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[600px]">
+                      <div className="grid grid-cols-[1.75rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_4.5rem_3.75rem_3.5rem] items-center gap-2 px-2 pb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                        <span />
+                        <span>Version</span>
+                        <span>Game version</span>
+                        <span>Platform</span>
+                        <span>Published</span>
+                        <span className="text-right">Downloads</span>
+                        <span />
+                      </div>
+                      {visibleVersions.length === 0 ? (
+                        <p className="px-2 py-4 text-sm text-zinc-400">
+                          No versions match these filters.
+                        </p>
+                      ) : (
+                        <ul className="flex flex-col gap-2">
+                          {visibleVersions.map((version) => {
+                            const badgeLetter = channelBadge(
+                              version.release_channel
+                            );
+                            const gvList = (
+                              version.project_version_game_versions ?? []
+                            )
+                              .map((x) => x.game_versions)
+                              .filter(Boolean);
+                            const loaders = (
+                              version.project_version_loaders ?? []
+                            )
+                              .map((x) => x.loaders?.name)
+                              .filter(Boolean);
+                            const range = gameVersionRange(gvList);
+                            return (
+                              <li
+                                key={version.id}
+                                title={version.file_name ?? version.version}
+                                className="grid grid-cols-[1.75rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_4.5rem_3.75rem_3.5rem] items-center gap-2 rounded border border-zinc-800 bg-zinc-950 px-2 py-2"
+                              >
+                                <span
+                                  title={version.release_channel}
+                                  className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800 text-xs font-bold text-zinc-300"
+                                >
+                                  {badgeLetter}
+                                </span>
+                                <span className="truncate font-semibold text-white">
+                                  {version.version}
+                                </span>
+                                <span>
+                                  {range ? (
+                                    <span className="inline-block rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-0.5 text-xs text-zinc-300">
+                                      {range}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-zinc-600">
+                                      -
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="flex flex-wrap gap-1.5">
+                                  {loaders.length > 0 ? (
+                                    loaders.map((l) => (
+                                      <span
+                                        key={l}
+                                        className="inline-block rounded-full border border-blue-900 bg-blue-950 px-2.5 py-0.5 text-xs text-blue-200"
+                                      >
+                                        {l}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-xs text-zinc-600">
+                                      -
+                                    </span>
+                                  )}
+                                </span>
+                                <span
+                                  title={formatDate(version.created_at)}
+                                  className="text-sm text-zinc-400"
+                                >
+                                  {formatRelativeTime(version.created_at)}
+                                </span>
+                                <span className="text-right text-sm text-zinc-300">
+                                  {version.download_count ?? 0}
+                                </span>
+                                <span className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditingVersion(version)
+                                    }
+                                    aria-label={`Edit changelog for ${version.version}`}
+                                    title="Edit changelog"
+                                    className="rounded p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth={1.8}
+                                      className="h-4 w-4"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
+                                      />
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
+                                      />
+                                    </svg>
+                                  </button>
+                                  <VersionMenu
+                                    open={openMenuId === version.id}
+                                    onToggle={() =>
+                                      setOpenMenuId((prev) =>
+                                        prev === version.id ? null : version.id
+                                      )
+                                    }
+                                    onClose={() => setOpenMenuId(null)}
+                                    onDownload={() => downloadVersion(version)}
+                                    onDelete={() => deleteVersion(version)}
+                                    downloading={downloadingId === version.id}
+                                  />
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                  </>
+                )}
+
+                {editingVersion && (
+                  <EditChangelogModal
+                    version={editingVersion}
+                    onClose={() => setEditingVersion(null)}
+                    onSaved={() => {
+                      setEditingVersion(null);
+                      setMessage({
+                        type: "success",
+                        text: "Changelog updated.",
+                      });
+                      loadProject();
+                    }}
+                  />
                 )}
               </section>
             )}

@@ -1,13 +1,61 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import Markdown from "./Markdown";
+
+const CHECK = "\u2713";
+
+function CheckboxPills({
+  items,
+  selectedIds,
+  onToggle,
+  renderLabel,
+  emptyText,
+  loading,
+  disabled,
+}) {
+  if (loading) {
+    return <p className="text-sm text-zinc-500">Loading...</p>;
+  }
+  if (items.length === 0) {
+    return <p className="text-sm text-zinc-500">{emptyText}</p>;
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((item) => {
+        const active = selectedIds.includes(item.id);
+        return (
+          <button
+            key={item.id}
+            type="button"
+            aria-pressed={active}
+            disabled={disabled}
+            onClick={() => onToggle(item.id)}
+            className={`rounded-full border px-3 py-1 text-sm transition ${
+              active
+                ? "border-blue-500 bg-blue-600 text-white"
+                : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-zinc-500 hover:text-white"
+            } disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            {active ? `${CHECK} ` : ""}
+            {renderLabel(item)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function VersionForm({ projectId, game_id, onDone }) {
   const { user } = useAuth();
   const [loaders, setLoaders] = useState([]);
   const [gameVersions, setGameVersions] = useState([]);
+  const [loadingOptions, setLoadingOptions] = useState(true);
   const [file, setFile] = useState(null);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [status, setStatus] = useState("idle"); // idle | uploading | saving | linking | done
+  const [changelogTab, setChangelogTab] = useState("edit");
   const [form, setForm] = useState({
     version: "",
     release_channel: "release",
@@ -15,6 +63,9 @@ function VersionForm({ projectId, game_id, onDone }) {
     game_version_ids: [],
     loader_ids: [],
   });
+
+  const busy =
+    status === "uploading" || status === "saving" || status === "linking";
 
   useEffect(() => {
     let cancelled = false;
@@ -28,8 +79,11 @@ function VersionForm({ projectId, game_id, onDone }) {
         .order("released_at", { ascending: false }),
     ]).then(([loadersRes, versionsRes]) => {
       if (cancelled) return;
+      if (loadersRes.error) console.error(loadersRes.error);
+      if (versionsRes.error) console.error(versionsRes.error);
       setLoaders(loadersRes.data ?? []);
       setGameVersions(versionsRes.data ?? []);
+      setLoadingOptions(false);
     });
 
     return () => {
@@ -41,78 +95,149 @@ function VersionForm({ projectId, game_id, onDone }) {
     setForm((f) => ({ ...f, [name]: value }));
   }
 
-  function handleMultiSelect(name, e) {
-    updateForm(name, Array.from(e.target.selectedOptions, (o) => o.value));
+  function toggleId(name, id) {
+    setForm((f) => {
+      const list = f[name].includes(id)
+        ? f[name].filter((x) => x !== id)
+        : [...f[name], id];
+      return { ...f, [name]: list };
+    });
+  }
+
+  function statusLabel() {
+    switch (status) {
+      case "uploading":
+        return "Uploading file...";
+      case "saving":
+        return "Creating version...";
+      case "linking":
+        return "Linking game versions...";
+      case "done":
+        return `Published ${CHECK}`;
+      default:
+        return "Publish Version";
+    }
+  }
+
+  function statusMessage() {
+    switch (status) {
+      case "uploading":
+        return "Uploading file to storage...";
+      case "saving":
+        return "Creating version record...";
+      case "linking":
+        return "Linking game versions and loaders...";
+      default:
+        return null;
+    }
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
 
-    let filePath = null;
-    if (file) {
-      filePath = `${user.id}/${projectId}/${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("project-files")
-        .upload(filePath, file);
-
-      if (uploadError) {
-        setError(uploadError.message);
-        return;
-      }
-    }
-
-    const { data: version, error: versionError } = await supabase
-      .from("project_versions")
-      .insert({
-        project_id: projectId,
-        version: form.version,
-        release_channel: form.release_channel,
-        changelog: form.changelog?.trim() ? form.changelog : null,
-        file_path: filePath,
-        file_name: file?.name ?? null,
-        file_size: file?.size ?? null,
-      })
-      .select()
-      .single();
-
-    if (versionError) {
-      setError(versionError.message);
+    if (!user?.id) {
+      setError("You must be logged in to publish a version.");
       return;
     }
 
-    if (form.game_version_ids.length > 0) {
-      const { error: gvError } = await supabase
-        .from("project_version_game_versions")
-        .insert(
-          form.game_version_ids.map((game_version_id) => ({
-            project_version_id: version.id,
-            game_version_id,
-          }))
-        );
-      if (gvError) console.error(gvError);
-    }
+    let filePath = null;
+    try {
+      if (file) {
+        setStatus("uploading");
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
+        filePath = `${user.id}/${projectId}/${Date.now()}-${safeName}`;
+        const { error: uploadError } = await supabase.storage
+          .from("project-files")
+          .upload(filePath, file, { upsert: true });
 
-    if (form.loader_ids.length > 0) {
-      const { error: loaderError } = await supabase
-        .from("project_version_loaders")
-        .insert(
-          form.loader_ids.map((loader_id) => ({
-            project_version_id: version.id,
-            loader_id,
-          }))
-        );
-      if (loaderError) console.error(loaderError);
-    }
+        if (uploadError) throw uploadError;
+      }
 
-    onDone();
+      setStatus("saving");
+      const { data: version, error: versionError } = await supabase
+        .from("project_versions")
+        .insert({
+          project_id: projectId,
+          version: form.version,
+          release_channel: form.release_channel,
+          changelog: form.changelog?.trim() ? form.changelog : null,
+          file_path: filePath,
+          file_name: file?.name ?? null,
+          file_size: file?.size ?? null,
+        })
+        .select()
+        .single();
+
+      if (versionError) {
+        // Avoid orphan files when the DB row is rejected (e.g. RLS).
+        if (filePath) {
+          await supabase.storage.from("project-files").remove([filePath]);
+        }
+        throw versionError;
+      }
+
+      if (form.game_version_ids.length > 0 || form.loader_ids.length > 0) {
+        setStatus("linking");
+      }
+
+      if (form.game_version_ids.length > 0) {
+        const { error: gvError } = await supabase
+          .from("project_version_game_versions")
+          .insert(
+            form.game_version_ids.map((game_version_id) => ({
+              project_version_id: version.id,
+              game_version_id,
+            }))
+          );
+        if (gvError) throw gvError;
+      }
+
+      if (form.loader_ids.length > 0) {
+        const { error: loaderError } = await supabase
+          .from("project_version_loaders")
+          .insert(
+            form.loader_ids.map((loader_id) => ({
+              project_version_id: version.id,
+              loader_id,
+            }))
+          );
+        if (loaderError) throw loaderError;
+      }
+
+      setStatus("done");
+      setSuccess(
+        `Version ${form.version} published successfully${
+          file ? ` (${file.name})` : ""
+        }.`
+      );
+      // Let the user see the confirmation before the parent closes the modal.
+      setTimeout(onDone, 1200);
+    } catch (err) {
+      console.error("Version publish failed:", err);
+      setError(err.message ?? "Failed to publish version.");
+      setStatus("idle");
+    }
   }
+
+  const busyMessage = statusMessage();
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       {error && (
-        <p className="rounded bg-red-900/50 p-3 text-sm text-red-200">
+        <p className="rounded border border-red-800 bg-red-900/50 p-3 text-sm text-red-200">
           {error}
+        </p>
+      )}
+      {success && (
+        <p className="rounded border border-green-800 bg-green-900/50 p-3 text-sm text-green-200">
+          {success}
+        </p>
+      )}
+      {busyMessage && (
+        <p className="text-sm text-blue-300" role="status" aria-live="polite">
+          {busyMessage}
         </p>
       )}
       <div className="flex gap-3">
@@ -126,7 +251,8 @@ function VersionForm({ projectId, game_id, onDone }) {
             value={form.version}
             onChange={(e) => updateForm("version", e.target.value)}
             required
-            className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+            disabled={busy}
+            className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white disabled:opacity-50"
           />
         </div>
         <div>
@@ -136,7 +262,8 @@ function VersionForm({ projectId, game_id, onDone }) {
           <select
             value={form.release_channel}
             onChange={(e) => updateForm("release_channel", e.target.value)}
-            className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+            disabled={busy}
+            className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white disabled:opacity-50"
           >
             <option value="release">Release</option>
             <option value="beta">Beta</option>
@@ -144,55 +271,92 @@ function VersionForm({ projectId, game_id, onDone }) {
           </select>
         </div>
       </div>
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium text-zinc-300">
-            Game versions
-          </label>
-          <select
-            multiple
-            size={Math.min(4, Math.max(1, gameVersions.length))}
-            value={form.game_version_ids}
-            onChange={(e) => handleMultiSelect("game_version_ids", e)}
-            className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
-          >
-            {gameVersions.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.version}
-              </option>
-            ))}
-          </select>
+      <div className="flex flex-col gap-3">
+        <div>
+          <span className="mb-1 block text-sm font-medium text-zinc-300">
+            Game versions{" "}
+            <span className="font-normal text-zinc-500">
+              ({form.game_version_ids.length} selected)
+            </span>
+          </span>
+          <CheckboxPills
+            items={gameVersions}
+            selectedIds={form.game_version_ids}
+            onToggle={(id) => toggleId("game_version_ids", id)}
+            renderLabel={(v) => v.version}
+            loading={loadingOptions}
+            disabled={busy}
+            emptyText="No game versions listed for this game yet."
+          />
         </div>
-        <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium text-zinc-300">
-            Loaders
-          </label>
-          <select
-            multiple
-            size={Math.min(4, Math.max(1, loaders.length))}
-            value={form.loader_ids}
-            onChange={(e) => handleMultiSelect("loader_ids", e)}
-            className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
-          >
-            {loaders.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
+        <div>
+          <span className="mb-1 block text-sm font-medium text-zinc-300">
+            Loaders{" "}
+            <span className="font-normal text-zinc-500">
+              ({form.loader_ids.length} selected)
+            </span>
+          </span>
+          <CheckboxPills
+            items={loaders}
+            selectedIds={form.loader_ids}
+            onToggle={(id) => toggleId("loader_ids", id)}
+            renderLabel={(l) => l.name}
+            loading={loadingOptions}
+            disabled={busy}
+            emptyText="No loaders listed for this game yet."
+          />
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-300">
-          Changelog (optional)
-        </label>
-        <textarea
-          value={form.changelog}
-          onChange={(e) => updateForm("changelog", e.target.value)}
-          rows={4}
-          placeholder="What changed in this version? Markdown supported."
-          className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
-        />
+        <div className="mb-1 flex items-center justify-between">
+          <label className="block text-sm font-medium text-zinc-300">
+            Changelog (optional)
+          </label>
+          <div className="flex gap-1 text-xs">
+            <button
+              type="button"
+              onClick={() => setChangelogTab("edit")}
+              className={`rounded px-2 py-1 ${
+                changelogTab === "edit"
+                  ? "bg-zinc-700 text-white"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => setChangelogTab("preview")}
+              className={`rounded px-2 py-1 ${
+                changelogTab === "preview"
+                  ? "bg-zinc-700 text-white"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              Preview
+            </button>
+          </div>
+        </div>
+        {changelogTab === "edit" ? (
+          <>
+            <textarea
+              value={form.changelog}
+              onChange={(e) => updateForm("changelog", e.target.value)}
+              rows={4}
+              disabled={busy}
+              placeholder="What changed in this version? Markdown supported."
+              className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 font-mono text-white disabled:opacity-50"
+            />
+            <p className="mt-1 text-xs text-zinc-500">
+              Markdown supported: **bold**, *italic*, # headings, - lists,
+              [links](https://...), `code`, tables.
+            </p>
+          </>
+        ) : (
+          <div className="min-h-24 rounded border border-zinc-700 bg-zinc-950 px-3 py-2">
+            <Markdown text={form.changelog} emptyText="Nothing to preview yet." />
+          </div>
+        )}
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-zinc-300">
@@ -200,15 +364,21 @@ function VersionForm({ projectId, game_id, onDone }) {
         </label>
         <input
           type="file"
+          disabled={busy}
           onChange={(e) => setFile(e.target.files[0] ?? null)}
-          className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+          className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white disabled:opacity-50"
         />
+        {file && (
+          <p className="mt-1 text-xs text-zinc-400">
+            Selected: {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+          </p>
+        )}
       </div>
-      <p className="text-xs text-zinc-500">
-        Hold Ctrl/Cmd to select multiple game versions and loaders.
-      </p>
-      <button className="self-start rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500">
-        Publish Version
+      <button
+        disabled={busy || status === "done"}
+        className="self-start rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {statusLabel()}
       </button>
     </form>
   );

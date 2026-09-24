@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import VersionForm from "../components/VersionForm";
+import Modal from "../components/Modal";
 import { VoteStars } from "../components/VoteButtons";
 import { DashboardProjectSkeleton } from "../components/Skeletons";
 
@@ -156,14 +157,10 @@ function Dashboard() {
                     ))}
                   </select>
                   <button
-                    onClick={() =>
-                      setOpenVersionFor((prev) =>
-                        prev === project.id ? null : project.id
-                      )
-                    }
+                    onClick={() => setOpenVersionFor(project.id)}
                     className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-500"
                   >
-                    {openVersionFor === project.id ? "Cancel" : "Add Version"}
+                    Add Version
                   </button>
                   <Link
                     to={`/mods/${project.slug}/settings`}
@@ -181,7 +178,10 @@ function Dashboard() {
               </div>
 
               {openVersionFor === project.id && (
-                <div className="mt-4 border-t border-zinc-800 pt-4">
+                <Modal
+                  title={`Add version to ${project.name}`}
+                  onClose={() => setOpenVersionFor(null)}
+                >
                   <VersionForm
                     projectId={project.id}
                     game_id={project.game_id}
@@ -190,7 +190,7 @@ function Dashboard() {
                       reloadProjects();
                     }}
                   />
-                </div>
+                </Modal>
               )}
             </li>
           ))}
