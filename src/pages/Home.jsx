@@ -100,30 +100,246 @@ function Home() {
         : "text-zinc-500 hover:text-zinc-200"
     }`;
 
+  const featuredGame = useMemo(
+    () =>
+      games.find((g) => g.banner_url) ?? games[0] ?? null,
+    [games]
+  );
+  const featuredCount = featuredGame ? modCounts[featuredGame.id] : null;
+
+  // Hero gallery: 0 = FrostWolf, 1 = featured game, 2 = join us.
+  const [heroSlide, setHeroSlide] = useState(0);
+  useEffect(() => {
+    const id = setInterval(
+      () => setHeroSlide((s) => (s + 1) % 3),
+      8000
+    );
+    return () => clearInterval(id);
+  }, []);
+  const heroDots = ["FrostWolf", "Featured game", "Join us"];
+
   return (
     <div>
-      <section className="border-b border-zinc-800 bg-gradient-to-r from-blue-950 via-zinc-900 to-zinc-950">
-        <div className="mx-auto max-w-6xl px-6 py-14">
-          <h1 className="max-w-2xl text-4xl font-bold text-white">
-            Find your next favorite mod
-          </h1>
-          <p className="mt-3 max-w-xl text-sm text-zinc-400">
-            Browse games, discover community projects, and share your own mods
-            with players.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <a
-              href="#games"
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+      {/* Steam-style hero gallery: FrostWolf / featured game / join us */}
+      <section className="relative overflow-hidden border-b border-zinc-800 bg-[#171a21]">
+        {/* Blurred background art, only on the featured-game slide */}
+        {heroSlide === 1 && featuredGame?.banner_url && (
+          <>
+            <GameBanner
+              url={featuredGame.banner_url}
+              name={featuredGame.name}
+              className="absolute inset-0 h-full w-full scale-105 object-cover opacity-30 blur-[2px]"
+              fallback={null}
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#171a21] via-[#171a21]/85 to-[#171a21]/40"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-[#171a21]/60"
+            />
+          </>
+        )}
+        <div className="relative mx-auto max-w-6xl px-6 pt-10">
+          <div className="grid items-center gap-6 md:grid-cols-[1fr_320px]">
+            {/* Main capsule */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-400/80">
+                {heroSlide === 0
+                  ? "FrostWolf"
+                  : heroSlide === 1
+                    ? "Featured game"
+                    : "Join us"}
+              </p>
+              {loading || (heroSlide === 1 && !featuredGame) ? (
+                <div
+                  aria-hidden
+                  className="mt-3 aspect-[21/9] w-full animate-pulse rounded-lg bg-white/5"
+                />
+              ) : heroSlide === 0 ? (
+                <div className="mt-3 flex aspect-[21/9] w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-r from-blue-950 via-[#1b2838] to-zinc-900 shadow-2xl">
+                  <img
+                    src="/frostwolf-light.svg"
+                    alt="FrostWolf"
+                    className="h-16 w-auto opacity-90"
+                  />
+                  <p className="px-6 text-center text-2xl font-bold text-white">
+                    Find your next favorite mod
+                  </p>
+                </div>
+              ) : heroSlide === 1 && featuredGame ? (
+                <Link
+                  to={`/games/${featuredGame.slug}`}
+                  className="group mt-3 block overflow-hidden rounded-lg border border-white/10 shadow-2xl"
+                >
+                  <GameBanner
+                    url={featuredGame.banner_url}
+                    name={featuredGame.name}
+                    className="aspect-[21/9] w-full object-cover transition-transform duration-300 group-hover:scale-[1.01]"
+                    fallback={
+                      <div
+                        aria-hidden
+                        className="flex aspect-[21/9] w-full items-center justify-center bg-gradient-to-r from-blue-950 via-[#1b2838] to-zinc-900"
+                      >
+                        <span className="text-5xl font-bold text-white/20">
+                          {(featuredGame.name ?? "?").charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    }
+                  />
+                </Link>
+              ) : (
+                <div className="mt-3 flex aspect-[21/9] w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-r from-emerald-950 via-[#1b2838] to-zinc-900 shadow-2xl">
+                  <p className="text-2xl font-bold text-white">
+                    Share your mod with players
+                  </p>
+                  <p className="text-sm text-zinc-400">
+                    Publish in minutes. Free, forever.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Side info panel */}
+            <div className="rounded-lg border border-white/10 bg-black/40 p-5 backdrop-blur-sm">
+              {loading || (heroSlide === 1 && !featuredGame) ? (
+                <div aria-hidden className="animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded bg-white/10" />
+                    <div className="h-6 w-32 rounded bg-white/10" />
+                  </div>
+                  <div className="mt-4 h-3 w-full rounded bg-white/5" />
+                  <div className="mt-2 h-3 w-2/3 rounded bg-white/5" />
+                  <div className="mt-5 h-9 w-full rounded bg-white/10" />
+                </div>
+              ) : heroSlide === 0 ? (
+                <>
+                  <h1 className="text-2xl font-bold text-white">
+                    Mods, made for players
+                  </h1>
+                  <p className="mt-2 line-clamp-3 text-sm text-zinc-400">
+                    Browse games, discover community projects, and share your
+                    own mods with players.
+                  </p>
+                  <div className="mt-5 flex flex-col gap-2">
+                    <a
+                      href="#games"
+                      className="rounded bg-blue-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-blue-500"
+                    >
+                      Browse games
+                    </a>
+                    <Link
+                      to="/mods/new"
+                      className="rounded border border-white/10 bg-white/5 px-4 py-2 text-center text-sm font-medium text-zinc-200 hover:border-white/25 hover:text-white"
+                    >
+                      Share a mod
+                    </Link>
+                  </div>
+                </>
+              ) : heroSlide === 1 && featuredGame ? (
+                <>
+                  <div className="flex items-center gap-3">
+                    <ProjectIcon
+                      url={featuredGame.icon_url}
+                      name={featuredGame.name}
+                      className="h-12 w-12 rounded border border-white/10"
+                    />
+                    <div className="min-w-0">
+                      <h1 className="truncate text-2xl font-bold text-white">
+                        {featuredGame.name}
+                      </h1>
+                      <p className="text-xs text-zinc-400">
+                        {modsLoading || featuredCount == null
+                          ? "Loading mods…"
+                          : `${featuredCount} mod${featuredCount === 1 ? "" : "s"}`}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-3 line-clamp-3 text-sm text-zinc-400">
+                    Discover community mods for {featuredGame.name}: top
+                    liked projects, new releases, and more.
+                  </p>
+                  <div className="mt-5 flex flex-col gap-2">
+                    <Link
+                      to={`/games/${featuredGame.slug}`}
+                      className="rounded bg-blue-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-blue-500"
+                    >
+                      Browse mods
+                    </Link>
+                    <a
+                      href="#games"
+                      className="rounded border border-white/10 bg-white/5 px-4 py-2 text-center text-sm font-medium text-zinc-200 hover:border-white/25 hover:text-white"
+                    >
+                      All games
+                    </a>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h1 className="text-2xl font-bold text-white">
+                    Creators welcome
+                  </h1>
+                  <p className="mt-2 line-clamp-3 text-sm text-zinc-400">
+                    Upload versions, write a changelog, add tags and gallery
+                    images: everything a player needs to trust your work.
+                  </p>
+                  <div className="mt-5 flex flex-col gap-2">
+                    <Link
+                      to="/mods/new"
+                      className="rounded bg-emerald-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-emerald-500"
+                    >
+                      Publish your first mod
+                    </Link>
+                    <Link
+                      to="/signup"
+                      className="rounded border border-white/10 bg-white/5 px-4 py-2 text-center text-sm font-medium text-zinc-200 hover:border-white/25 hover:text-white"
+                    >
+                      Create an account
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Gallery nav: prev / dots / next */}
+          <div className="flex items-center justify-between gap-4 py-4">
+            <button
+              type="button"
+              onClick={() =>
+                setHeroSlide((s) => (s + heroDots.length - 1) % heroDots.length)
+              }
+              aria-label="Previous slide"
+              className="rounded border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-300 hover:border-white/25 hover:text-white"
             >
-              Browse games
-            </a>
-            <Link
-              to="/mods/new"
-              className="rounded border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm font-medium text-zinc-200 hover:border-zinc-500 hover:text-white"
+              ‹
+            </button>
+            <div className="flex items-center gap-2">
+              {heroDots.map((label, i) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setHeroSlide(i)}
+                  aria-label={`Go to ${label}`}
+                  aria-current={i === heroSlide ? "true" : undefined}
+                  title={label}
+                  className={`h-2 rounded-full transition-all ${
+                    i === heroSlide
+                      ? "w-8 bg-sky-400"
+                      : "w-2 bg-white/20 hover:bg-white/40"
+                  }`}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setHeroSlide((s) => (s + 1) % heroDots.length)}
+              aria-label="Next slide"
+              className="rounded border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-300 hover:border-white/25 hover:text-white"
             >
-              Share a mod
-            </Link>
+              ›
+            </button>
           </div>
         </div>
       </section>

@@ -2,7 +2,7 @@ import { supabase } from "./supabase";
 
 // Downloads a version file to the user's device. Handles both legacy
 // external URLs (stored directly in file_path) and storage objects.
-// Returns { error } — error is null on success.
+// Returns { error }: error is null on success.
 export async function downloadVersionFile(version) {
   if (!version?.file_path) {
     return { error: new Error("This version has no file attached.") };

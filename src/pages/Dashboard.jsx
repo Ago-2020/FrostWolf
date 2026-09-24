@@ -727,7 +727,7 @@ function StatusLabel({ status }) {
 }
 
 function shortId(id) {
-  if (!id) return "—";
+  if (!id) return "-";
   return id.replace(/-/g, "").slice(0, 8);
 }
 

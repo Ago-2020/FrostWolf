@@ -1,10 +1,10 @@
-// FrostWolf logo — cleaned export of src/assets/icons/FrostWolf.svg.
+// FrostWolf logo: cleaned export of src/assets/icons/FrostWolf.svg.
 // Variants:
-//   "light"     — white/grey wolf + blue scar, for dark backgrounds (default,
+//   "light"     : white/grey wolf + blue scar, for dark backgrounds (default,
 //                 matches the site's dark theme).
-//   "dark"      — original near-black wolf, for light backgrounds. The scar is
+//   "dark"      : original near-black wolf, for light backgrounds. The scar is
 //                 darkened slightly (#0090C8) so it stays visible on white.
-//   "blueprint" — monochrome line drawing (stroke="currentColor", no fills).
+//   "blueprint" : monochrome line drawing (stroke="currentColor", no fills).
 //                 Pair with a blueprint-blue surface, e.g.
 //                 className="text-sky-200" on a bg-sky-950 parent.
 const PALETTES = {

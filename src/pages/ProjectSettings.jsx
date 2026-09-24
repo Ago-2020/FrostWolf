@@ -563,7 +563,7 @@ function ProjectSettings() {
       return a.version.localeCompare(b.version, undefined, { numeric: true });
     });
     if (sorted.length === 1) return sorted[0].version;
-    return `${sorted[0].version} — ${sorted[sorted.length - 1].version}`;
+    return `${sorted[0].version} - ${sorted[sorted.length - 1].version}`;
   }
 
   async function deleteProject() {
@@ -617,7 +617,7 @@ function ProjectSettings() {
     <div className="mx-auto max-w-5xl px-6 py-12">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">
-          {project.name} — Settings
+          {project.name}: Settings
         </h1>
         <Link
           to={`/mods/${project.slug}`}

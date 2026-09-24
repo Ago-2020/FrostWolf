@@ -1,7 +1,7 @@
 export function formatDate(value) {
-  if (!value) return "—";
+  if (!value) return "-";
   const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   return d.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
@@ -28,11 +28,11 @@ export function formatFileSize(bytes) {
 }
 
 // Compact relative time: "just now", "5m ago", "3h ago", "2d ago",
-// "3mo ago", "2y ago". Returns "—" for missing/invalid dates.
+// "3mo ago", "2y ago". Returns "-" for missing/invalid dates.
 export function formatRelativeTime(value) {
-  if (!value) return "—";
+  if (!value) return "-";
   const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   const diffMs = Date.now() - d.getTime();
   if (diffMs < 0) return "just now";
   const minutes = Math.floor(diffMs / 60000);

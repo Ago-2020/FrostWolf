@@ -34,7 +34,7 @@ function EditChangelogModal({ version, onClose, onSaved }) {
     }`;
 
   return (
-    <Modal title={`Edit changelog — ${version.version}`} onClose={onClose}>
+    <Modal title={`Edit changelog: ${version.version}`} onClose={onClose}>
       <form onSubmit={handleSave} className="flex flex-col gap-3">
         {error && (
           <p className="rounded border border-red-800 bg-red-900/50 p-3 text-sm text-red-200">

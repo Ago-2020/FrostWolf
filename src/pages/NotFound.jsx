@@ -22,7 +22,7 @@ function NotFound() {
         Lost in the snow?
       </h1>
       <p className="mt-4 max-w-md text-sm leading-relaxed text-zinc-400 sm:text-base">
-        This trail went cold — the page you&apos;re looking for doesn&apos;t
+        This trail went cold. The page you&apos;re looking for doesn&apos;t
         exist, was moved, or was never here.
       </p>
 

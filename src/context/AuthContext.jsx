@@ -19,7 +19,7 @@ export function AuthProvider({ children }) {
       .eq("id", userId)
       .maybeSingle();
     if (error) {
-      // Log the full PostgREST body (message/hint/details) — a 400 here
+      // Log the full PostgREST body (message/hint/details): a 400 here
       // almost always means the `profiles` table or one of these columns
       // doesn't exist yet. Run supabase/profiles.sql in the SQL editor.
       console.error("Failed to load profile:", error);
