@@ -125,6 +125,8 @@ function GamePage() {
                 summary,
                 description,
                 icon_url,
+                status,
+                visibility,
                 download_count,
                 like_count,
                 dislike_count,
@@ -139,6 +141,8 @@ function GamePage() {
                )`
             )
             .eq("game_id", gameData.id)
+            .eq("status", "published")
+            .eq("visibility", "public")
             .order("created_at", { ascending: false }),
         ]);
 
@@ -247,6 +251,8 @@ function GamePage() {
   const tagsWithCounts = useMemo(() => {
     const counts = new Map();
     for (const p of projects) {
+      // Drafts (no versions yet) are hidden from listings, so don't count them.
+      if ((p.project_versions?.length ?? 0) === 0) continue;
       for (const pt of p.project_tags ?? []) {
         if (pt.tags) counts.set(pt.tags.id, (counts.get(pt.tags.id) ?? 0) + 1);
       }
@@ -254,12 +260,20 @@ function GamePage() {
     return allTags.map((t) => ({ ...t, count: counts.get(t.id) ?? 0 }));
   }, [allTags, projects]);
 
+  // Listable projects exclude drafts (no versions). The query already filters
+  // by status/visibility, but keep this client-side guard so drafts never
+  // leak into search results (e.g. owner's own drafts visible via RLS).
+  const listableProjects = useMemo(
+    () => projects.filter((p) => (p.project_versions?.length ?? 0) > 0),
+    [projects]
+  );
+
   const filteredProjects = useMemo(() => {
     const q = search.trim().toLowerCase();
     const from = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
     const to = dateTo ? new Date(`${dateTo}T23:59:59.999`) : null;
 
-    const filtered = projects.filter((project) => {
+    const filtered = listableProjects.filter((project) => {
       if (
         q &&
         ![project.name, project.slug, project.summary, project.description]
@@ -350,7 +364,7 @@ function GamePage() {
       );
     }
     return sorted;
-  }, [projects, search, selectedTags, selectedGameVersions, selectedLoaders, selectedChannels, sort, dateFrom, dateTo]);
+  }, [listableProjects, search, selectedTags, selectedGameVersions, selectedLoaders, selectedChannels, sort, dateFrom, dateTo]);
 
   const totalPages = Math.max(
     1,
@@ -461,7 +475,7 @@ function GamePage() {
               <div className="min-w-0 flex-1">
                 <h1 className="truncate text-2xl font-bold text-white sm:text-3xl">{game?.name}</h1>
                 <p className="text-sm text-zinc-400">
-                  {filteredProjects.length} of {projects.length} project(s)
+                  {filteredProjects.length} of {listableProjects.length} project(s)
                 </p>
               </div>
               <button
@@ -522,7 +536,7 @@ function GamePage() {
                   </select>
                 </label>
               </div>
-              {projects.length === 0 ? (
+              {listableProjects.length === 0 ? (
             <p className="text-zinc-400">No projects for this game yet.</p>
           ) : filteredProjects.length === 0 ? (
             <div className="rounded border border-zinc-800 bg-zinc-900 p-6 text-center">

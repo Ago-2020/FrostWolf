@@ -149,6 +149,29 @@ function UserSettings() {
     return null;
   }
 
+  // Postgres unique violation surfaces as a raw DB message like:
+  // 'duplicate key value violates unique constraint "profiles_username_key"'.
+  // Map it to something the user can act on.
+  function isUsernameTakenError(err) {
+    if (!err) return false;
+    if (err.code === "23505") return true;
+    const haystack =
+      `${err.message ?? ""} ${err.details ?? ""} ${err.hint ?? ""}`.toLowerCase();
+    return (
+      haystack.includes("profiles_username_key") ||
+      haystack.includes("duplicate key") ||
+      (haystack.includes("username") &&
+        (haystack.includes("already") || haystack.includes("unique")))
+    );
+  }
+
+  function friendlySaveError(err) {
+    if (isUsernameTakenError(err)) {
+      return "This username is already taken. Please choose another one.";
+    }
+    return err?.message ?? "Failed to save profile. Please try again.";
+  }
+
   async function handleProfileSubmit(e) {
     e.preventDefault();
     setMessage(null);
@@ -164,9 +187,35 @@ function UserSettings() {
     }
 
     setSaving(true);
+    const trimmedUsername = username.trim();
+    // Proactive availability check so the user gets a clear message
+    // instead of a raw DB error. The friendly error mapping below remains
+    // as a fallback for race conditions.
+    try {
+      const { data: existing, error: lookupError } = await supabase
+        .from("profiles")
+        .select("id")
+        .ilike("username", trimmedUsername)
+        .neq("id", user.id)
+        .limit(1)
+        .maybeSingle();
+      if (!lookupError && existing) {
+        setSaving(false);
+        showMessage(
+          "error",
+          "This username is already taken. Please choose another one."
+        );
+        return;
+      }
+      // Ignore lookup failures here and let the upsert attempt decide;
+      // RLS or network issues shouldn't block saving.
+    } catch {
+      /* fall through to upsert, whose error will be mapped nicely */
+    }
+
     const payload = {
       id: user.id,
-      username: username.trim() || null,
+      username: trimmedUsername || null,
       display_name: displayName.trim() || null,
       avatar_url: avatarUrl.trim() || null,
     };
@@ -186,7 +235,7 @@ function UserSettings() {
           .upsert(withoutBio, { onConflict: "id" });
         setSaving(false);
         if (retryError) {
-          showMessage("error", retryError.message);
+          showMessage("error", friendlySaveError(retryError));
           return;
         }
         setBioSupported(false);
@@ -198,7 +247,7 @@ function UserSettings() {
         return;
       }
       setSaving(false);
-      showMessage("error", saveError.message);
+      showMessage("error", friendlySaveError(saveError));
       return;
     }
 
