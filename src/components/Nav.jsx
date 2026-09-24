@@ -66,7 +66,28 @@ function Nav() {
 
       <div className="flex items-center gap-4">
         {user ? (
-          <div ref={menuRef} className="relative">
+          <>
+            <Link
+              to="/mods/new"
+              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:border-zinc-500 hover:text-white"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+                className="h-4 w-4"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4.5v15m7.5-7.5h-15"
+                />
+              </svg>
+              Create project
+            </Link>
+            <div ref={menuRef} className="relative">
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
@@ -144,6 +165,7 @@ function Nav() {
               </div>
             )}
           </div>
+          </>
         ) : (
           <>
             <Link to="/login" className="text-zinc-300 hover:text-white">

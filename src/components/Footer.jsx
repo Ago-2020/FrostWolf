@@ -20,9 +20,6 @@ function Footer() {
           <Link to="/" className="text-zinc-400 hover:text-white">
             Games
           </Link>
-          <Link to="/dashboard" className="text-zinc-400 hover:text-white">
-            Dashboard
-          </Link>
           <Link to="/mods/new" className="text-zinc-400 hover:text-white">
             Share a mod
           </Link>
