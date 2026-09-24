@@ -214,9 +214,9 @@ function VersionForm({ projectId, game_id, onDone }) {
 
       setStatus("done");
       setSuccess(
-        `Version ${form.version} published successfully${
+        `Version ${form.version} submitted for review${
           file ? ` (${file.name})` : ""
-        }.`
+        }. It goes public once an admin approves it.`
       );
       // Let the user see the confirmation before the parent closes the modal.
       setTimeout(onDone, 1200);

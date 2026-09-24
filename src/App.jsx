@@ -7,6 +7,8 @@ import { AuthProvider } from "./context/AuthContext";
 import Nav from "./components/Nav";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
+import Admin from "./pages/Admin";
 import Home from "./pages/Home";
 import ModPage from "./pages/ModPage";
 import Login from "./pages/Login";
@@ -82,6 +84,14 @@ const router = createBrowserRouter([
           <ProtectedRoute>
             <NewMod />
           </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/admin",
+        element: (
+          <AdminRoute>
+            <Admin />
+          </AdminRoute>
         ),
       },
       { path: "*", element: <NotFound /> },

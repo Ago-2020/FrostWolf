@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import FrostWolfLogo from "./FrostWolfLogo";
 
 function Nav() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -151,6 +151,16 @@ function Nav() {
                   >
                     User settings
                   </Link>
+                  {isAdmin && (
+                    <Link
+                      to="/admin"
+                      role="menuitem"
+                      onClick={() => setMenuOpen(false)}
+                      className={menuItemClass}
+                    >
+                      Admin moderation
+                    </Link>
+                  )}
                 </div>
                 <div className="border-t border-zinc-800 py-1">
                   <button

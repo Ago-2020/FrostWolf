@@ -36,6 +36,18 @@ function toggle(list, id) {
   return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
 }
 
+// Versions pending review or rejected stay hidden from public listings.
+// Rows predating supabase/moderation.sql have no column -> treat as approved.
+function isApprovedVersion(v) {
+  return (
+    !v || !("moderation_status" in v) || v.moderation_status === "approved"
+  );
+}
+
+function approvedVersionsOf(p) {
+  return (p.project_versions ?? []).filter(isApprovedVersion);
+}
+
 function pageItems(total, current) {
   if (total <= 7)
     return Array.from({ length: total }, (_, i) => i + 1);
@@ -134,11 +146,12 @@ function GamePage() {
                 updated_at,
                project_tags ( tags ( id, name, slug ) ),
                project_versions!project_versions_project_id_fkey (
-                 version,
-                 release_channel,
-                 project_version_game_versions ( game_versions ( id, version ) ),
-                 project_version_loaders ( loaders ( id, name, slug ) )
-               )`
+                  version,
+                  release_channel,
+                  moderation_status,
+                  project_version_game_versions ( game_versions ( id, version ) ),
+                  project_version_loaders ( loaders ( id, name, slug ) )
+                )`
             )
             .eq("game_id", gameData.id)
             .eq("status", "published")
@@ -251,8 +264,8 @@ function GamePage() {
   const tagsWithCounts = useMemo(() => {
     const counts = new Map();
     for (const p of projects) {
-      // Drafts (no versions yet) are hidden from listings, so don't count them.
-      if ((p.project_versions?.length ?? 0) === 0) continue;
+      // Drafts (no approved versions yet) are hidden from listings, so don't count them.
+      if (approvedVersionsOf(p).length === 0) continue;
       for (const pt of p.project_tags ?? []) {
         if (pt.tags) counts.set(pt.tags.id, (counts.get(pt.tags.id) ?? 0) + 1);
       }
@@ -260,11 +273,11 @@ function GamePage() {
     return allTags.map((t) => ({ ...t, count: counts.get(t.id) ?? 0 }));
   }, [allTags, projects]);
 
-  // Listable projects exclude drafts (no versions). The query already filters
-  // by status/visibility, but keep this client-side guard so drafts never
-  // leak into search results (e.g. owner's own drafts visible via RLS).
+  // Listable projects exclude drafts (no approved versions). The query already
+  // filters by status/visibility, but keep this client-side guard so drafts
+  // and pending/rejected-only projects never leak into listings.
   const listableProjects = useMemo(
-    () => projects.filter((p) => (p.project_versions?.length ?? 0) > 0),
+    () => projects.filter((p) => approvedVersionsOf(p).length > 0),
     [projects]
   );
 
@@ -293,7 +306,7 @@ function GamePage() {
         if (!selectedTags.every((id) => projectTagIds.has(id))) return false;
       }
 
-      const versions = project.project_versions ?? [];
+      const versions = approvedVersionsOf(project);
 
       // Release channel: at least one version on a selected channel
       if (selectedChannels.length > 0) {

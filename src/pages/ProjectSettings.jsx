@@ -28,7 +28,7 @@ const TABS = [
 
 function ProjectSettings() {
   const { slug } = useParams();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   const [project, setProject] = useState(null);
@@ -606,6 +606,49 @@ function ProjectSettings() {
   }
 
   const isOwner = user?.id === project.owner_id;
+  const canEdit = isOwner || isAdmin;
+  async function moderateVersion(version, decision, note) {
+    if (decision === "rejected" && !(note ?? "").trim()) {
+      setMessage({
+        type: "error",
+        text: "A rejection note is required so the owner knows why it stays hidden.",
+      });
+      return;
+    }
+    const { error } = await supabase
+      .from("project_versions")
+      .update({
+        moderation_status: decision,
+        moderation_note: (note ?? "").trim() || null,
+      })
+      .eq("id", version.id);
+    if (error) {
+      setMessage({ type: "error", text: error.message });
+      return;
+    }
+    setMessage({
+      type: "success",
+      text: `Version ${version.version} ${decision}.`,
+    });
+    loadProject();
+  }
+
+  async function resubmitVersion(version) {
+    const { error } = await supabase
+      .from("project_versions")
+      .update({ moderation_status: "pending" })
+      .eq("id", version.id);
+    if (error) {
+      setMessage({ type: "error", text: error.message });
+      return;
+    }
+    setMessage({
+      type: "success",
+      text: `Version ${version.version} resubmitted for review.`,
+    });
+    loadProject();
+  }
+
   const labelClass = "mb-1 block text-sm font-medium text-zinc-300";
   const inputClass =
     "w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white";
@@ -627,9 +670,14 @@ function ProjectSettings() {
         </Link>
       </div>
 
-      {!isOwner && (
+      {!canEdit && (
         <p className="mb-6 rounded bg-yellow-900/50 p-3 text-sm text-yellow-200">
-          Only the project owner can edit these settings.
+          Only the project owner or an admin can edit these settings.
+        </p>
+      )}
+      {isAdmin && !isOwner && (
+        <p className="mb-6 rounded border border-blue-900 bg-blue-950 p-3 text-sm text-blue-200">
+          You are viewing as an admin. Changes are logged by moderation status.
         </p>
       )}
 
@@ -645,7 +693,7 @@ function ProjectSettings() {
         </p>
       )}
 
-      {isOwner && (
+      {canEdit && (
         <div className="flex flex-col gap-6 md:flex-row">
           <nav
             aria-label="Settings sections"
@@ -1086,8 +1134,9 @@ function ProjectSettings() {
                               <li
                                 key={version.id}
                                 title={version.file_name ?? version.version}
-                                className="grid grid-cols-[1.75rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_4.5rem_3.75rem_3.5rem] items-center gap-2 rounded border border-zinc-800 bg-zinc-950 px-2 py-2"
+                                className="rounded border border-zinc-800 bg-zinc-950 px-2 py-2"
                               >
+                                <div className="grid grid-cols-[1.75rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_4.5rem_3.75rem_3.5rem] items-center gap-2">
                                 <span
                                   title={version.release_channel}
                                   className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800 text-xs font-bold text-zinc-300"
@@ -1176,6 +1225,78 @@ function ProjectSettings() {
                                     downloading={downloadingId === version.id}
                                   />
                                 </span>
+                                </div>
+                                {(version.moderation_status ||
+                                  version.moderation_note) && (
+                                  <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-zinc-800 pt-2 text-xs">
+                                    <span
+                                      className={`rounded px-2 py-0.5 uppercase ${
+                                        version.moderation_status ===
+                                        "approved"
+                                          ? "bg-green-900 text-green-200"
+                                          : version.moderation_status ===
+                                              "rejected"
+                                            ? "bg-red-900 text-red-200"
+                                            : "bg-amber-900 text-amber-200"
+                                      }`}
+                                    >
+                                      {version.moderation_status ?? "pending"}
+                                    </span>
+                                    {version.moderation_note && (
+                                      <span className="text-zinc-400">
+                                        Note: {version.moderation_note}
+                                      </span>
+                                    )}
+                                    {version.moderation_status ===
+                                      "rejected" &&
+                                      isOwner && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            resubmitVersion(version)
+                                          }
+                                          className="rounded border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 hover:text-white"
+                                        >
+                                          Resubmit for review
+                                        </button>
+                                      )}
+                                    {isAdmin && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            moderateVersion(
+                                              version,
+                                              "approved",
+                                              version.moderation_note
+                                            )
+                                          }
+                                          className="rounded bg-green-600 px-2 py-1 text-white hover:bg-green-500"
+                                        >
+                                          Approve
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const note = window.prompt(
+                                              "Rejection note (required, shown to owner):",
+                                              version.moderation_note ?? ""
+                                            );
+                                            if (note === null) return;
+                                            moderateVersion(
+                                              version,
+                                              "rejected",
+                                              note
+                                            );
+                                          }}
+                                          className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-500"
+                                        >
+                                          Reject
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
                               </li>
                             );
                           })}

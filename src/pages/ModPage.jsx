@@ -63,10 +63,19 @@ function VersionDownloadList({ versions, onDownload }) {
   );
 }
 
+function isApprovedVersion(v) {
+  return !v || !("moderation_status" in v) || v.moderation_status === "approved";
+}
+
 function ModPage() {
   const { slug, projectSlug } = useParams();
   const pageSlug = projectSlug ?? slug;
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("malware");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportSaving, setReportSaving] = useState(false);
+  const [reportMessage, setReportMessage] = useState(null);
   const [project, setProject] = useState(null);
   const [author, setAuthor] = useState(null);
   const [notFound, setNotFound] = useState(false);
@@ -321,13 +330,44 @@ function ModPage() {
 
   if (!project) return <ModPageSkeleton />;
 
-  const versions = [...(project.project_versions ?? [])].sort(
+  const allVersions = [...(project.project_versions ?? [])].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
-  const latest = versions[0];
   const isOwner = user?.id === project.owner_id;
+  // Pending/rejected versions stay hidden from visitors; owners and admins
+  // see everything with status badges (rejected keeps its owner note).
+  const canSeeAll = isOwner || isAdmin;
+  const versions = canSeeAll
+    ? allVersions
+    : allVersions.filter(isApprovedVersion);
+  const latest = versions[0];
+  const pendingCount = allVersions.filter(
+    (v) => v.moderation_status === "pending"
+  ).length;
   const likeCount = Number(project.like_count) || 0;
   const dislikeCount = Number(project.dislike_count) || 0;
+
+  async function submitReport(e) {
+    if (e) e.preventDefault();
+    if (!user?.id || !project?.id || reportSaving) return;
+    setReportSaving(true);
+    setReportMessage(null);
+    const { error } = await supabase.from("reports").insert({
+      reporter_id: user.id,
+      target_type: "project",
+      project_id: project.id,
+      reason: reportReason,
+      details: reportDetails.trim() || null,
+    });
+    setReportSaving(false);
+    if (error) {
+      setReportMessage({ type: "error", text: error.message });
+      return;
+    }
+    setReportDetails("");
+    setReportOpen(false);
+    setReportMessage({ type: "success", text: "Report sent. Thanks." });
+  }
 
   const tags = (project.project_tags ?? [])
     .map((pt) => pt.tags)
@@ -476,15 +516,29 @@ function ModPage() {
             )}
           </div>
         </div>
+        {canSeeAll && pendingCount > 0 && (
+          <p className="mt-3 rounded border border-amber-800 bg-amber-900/30 p-3 text-sm text-amber-200">
+            {pendingCount} version(s) pending review — hidden from visitors
+            until approved.
+          </p>
+        )}
         <div className="shrink-0 text-left sm:text-right">
           <div className="flex items-center gap-2 sm:justify-end">
-            {isOwner && (
+            {(isOwner || isAdmin) && (
               <Link
                 to={`/mods/${project.slug}/settings`}
                 className="rounded border border-zinc-700 bg-zinc-900 px-4 py-2 font-medium text-zinc-300 hover:border-zinc-500 hover:text-white"
               >
                 Settings
               </Link>
+            )}
+            {user && !isOwner && !isAdmin && (
+              <button
+                onClick={() => setReportOpen(true)}
+                className="rounded border border-zinc-700 bg-zinc-900 px-4 py-2 font-medium text-zinc-300 hover:border-zinc-500 hover:text-white"
+              >
+                Report
+              </button>
             )}
             <button
               onClick={() => {
@@ -557,7 +611,25 @@ function ModPage() {
                                     {version.release_channel}
                                   </span>
                                 )}
+                                {canSeeAll &&
+                                  version.moderation_status &&
+                                  version.moderation_status !== "approved" && (
+                                    <span
+                                      className={`ml-2 rounded px-2 py-0.5 text-xs uppercase ${
+                                        version.moderation_status === "pending"
+                                          ? "bg-amber-900 text-amber-200"
+                                          : "bg-red-900 text-red-200"
+                                      }`}
+                                    >
+                                      {version.moderation_status}
+                                    </span>
+                                  )}
                               </p>
+                              {canSeeAll && version.moderation_note && (
+                                <p className="mt-1 rounded bg-zinc-950 p-2 text-xs text-zinc-400">
+                                  Moderation note: {version.moderation_note}
+                                </p>
+                              )}
                               <p className="mt-0.5 text-xs text-zinc-500">
                                 {formatDate(version.created_at)} •{" "}
                                 {version.download_count ?? 0} downloads
@@ -877,6 +949,74 @@ function ModPage() {
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {reportMessage && (
+        <p
+          className={`mt-4 rounded p-3 text-sm ${
+            reportMessage.type === "error"
+              ? "bg-red-900/50 text-red-200"
+              : "bg-green-900/50 text-green-200"
+          }`}
+        >
+          {reportMessage.text}
+        </p>
+      )}
+
+      {reportOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setReportOpen(false)}
+        >
+          <form
+            onSubmit={submitReport}
+            className="w-full max-w-md rounded-lg border border-zinc-700 bg-zinc-900 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-white">
+              Report {project.name}
+            </h2>
+            <label className="mt-4 block text-sm text-zinc-300">
+              Reason
+              <select
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+              >
+                <option value="malware">Malware / virus suspicion</option>
+                <option value="spam">Spam</option>
+                <option value="stolen">Stolen content</option>
+                <option value="nsfw">NSFW / inappropriate</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label className="mt-3 block text-sm text-zinc-300">
+              Details (optional)
+              <textarea
+                value={reportDetails}
+                onChange={(e) => setReportDetails(e.target.value)}
+                rows={4}
+                placeholder="What is wrong with this project?"
+                className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+              />
+            </label>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setReportOpen(false)}
+                className="rounded border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={reportSaving}
+                className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-500 disabled:opacity-50"
+              >
+                {reportSaving ? "Sending…" : "Send report"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

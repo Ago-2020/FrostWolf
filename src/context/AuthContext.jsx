@@ -78,8 +78,14 @@ export function AuthProvider({ children }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Admin role lives in auth app_metadata (set via Dashboard SQL, never
+  // from the client). See supabase/moderation.sql public.is_admin().
+  const isAdmin = user?.app_metadata?.role === "admin";
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, refreshProfile }}>
+    <AuthContext.Provider
+      value={{ user, profile, loading, refreshProfile, isAdmin }}
+    >
       {children}
     </AuthContext.Provider>
   );
