@@ -23,6 +23,14 @@
   ::placeholder {
     @apply text-zinc-500;
   }
+
+  /* Opt-in from Settings > Appearance > Reduce animations */
+  .reduce-motion *,
+  .reduce-motion *::before,
+  .reduce-motion *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 @layer components {
