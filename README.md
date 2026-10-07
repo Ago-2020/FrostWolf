@@ -1,16 +1,27 @@
-# FrostWolf
+<p align="center">
+<img src="https://github.com/Ago-2020/FrostWolf/blob/c56148043f1c43616499287438c76f840674b9f5/public/frostwolf-light.svg" width="200">
+</p>
+<h1 align="center">FrostWolf</h1>
 
-FrostWolf is a multi-game mod hosting site — browse games, discover mods, publish versions, rate and download. Built with React + Vite + Tailwind + Supabase.
+FrostWolf is a multi-game mod hosting site - browse games, discover mods, publish versions, rate and download. Built with React + Vite + Tailwind + Supabase.
+
+## Screenshots
+### Home page
+![Homepage](https://github.com/Ago-2020/FrostWolf/blob/c56148043f1c43616499287438c76f840674b9f5/FrostWolfScreenshot.png)
+### Game page
+![Homepage](https://github.com/Ago-2020/FrostWolf/blob/c56148043f1c43616499287438c76f840674b9f5/FrostWolfScreenshot2.png)
+### Mod page
+![Homepage](https://github.com/Ago-2020/FrostWolf/blob/c56148043f1c43616499287438c76f840674b9f5/FrostWolfScreenshot3.png)
 
 ## Features
 
-- **Game catalog** — curated games with icons/banners, top mods per game
-- **Mod pages** — markdown description, gallery, version list with game-version / loader / channel filters, file downloads
-- **Publishing** — create projects, upload versions (`project-files` storage), edit changelogs, project settings with unsaved-changes guard
-- **Accounts** — Supabase email auth, profiles (username / display name / avatar / bio), user pages, user settings
-- **Ratings & stats** — like/dislike with counts, download counts
-- **Moderation** — admin queue, dashboard for owners
-- **Legal pages** — Terms, Privacy, Community Rules
+- **Game catalog** - curated games with icons/banners, top mods per game
+- **Mod pages** - markdown description, gallery, version list with game-version / loader / channel filters, file downloads
+- **Publishing** - create projects, upload versions (`project-files` storage), edit changelogs, project settings with unsaved-changes guard
+- **Accounts** - Supabase email auth, profiles (username / display name / avatar / bio), user pages, user settings
+- **Ratings & stats** - like/dislike with counts, download counts
+- **Moderation** - admin queue, dashboard for owners
+- **Legal pages** - Terms, Privacy, Community Rules
 
 ## Tech stack
 
